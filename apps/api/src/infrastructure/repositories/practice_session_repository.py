@@ -39,6 +39,10 @@ class PracticeSessionRepository:
         )
         return self.db.scalar(stmt)
 
+    def update_current_step_no(self, session: PracticeSession, step_no: int) -> PracticeSession:
+        session.current_step_no = step_no
+        return session
+
     def count_created_since(self, user_id: str, since: datetime) -> int:
         stmt = select(func.count()).select_from(PracticeSession).where(
             PracticeSession.user_id == user_id,
