@@ -236,3 +236,33 @@ export type SubmitUserTurnPayload = {
 export type DiscardTurnResponse = {
   status: "discarded";
 };
+
+export type ConfirmTurnRequest = {
+  accepted: boolean;
+};
+
+export type AiTurnResponse = {
+  id: string;
+  turn_index: number;
+  speaker: "ai";
+  text: string;
+  audio_url?: string | null;
+  audio_mime_type?: string | null;
+};
+
+export type ConfirmTurnResponse = {
+  status: string;
+  user_turn_id: string;
+  ai_turn: AiTurnResponse;
+  current_step_no: number;
+};
+
+export type EndPracticeSessionRequest = {
+  reason: "user_finished" | "timeout";
+};
+
+export type EndPracticeSessionResponse = {
+  session_id: string;
+  status: string;
+  report_id: string;
+};

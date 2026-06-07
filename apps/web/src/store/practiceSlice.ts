@@ -2,12 +2,20 @@ import { createAsyncThunk, createSlice, type PayloadAction } from "@reduxjs/tool
 
 import { ApiRequestError } from "@/lib/api/client";
 import type {
+  ConfirmTurnResponse,
   ConversationTurn,
+  EndPracticeSessionResponse,
   PracticeSessionDetail,
   SessionScenario,
   SubmitUserTurnResponse,
 } from "@/lib/api/contracts";
-import { discardUserTurn, getPracticeSession, submitUserTurn } from "@/lib/api/endpoints";
+import {
+  confirmUserTurn,
+  discardUserTurn,
+  endPracticeSession as postEndPracticeSession,
+  getPracticeSession,
+  submitUserTurn,
+} from "@/lib/api/endpoints";
 import { normalizeUploadMimeType } from "@/lib/audio/uploadMimeType";
 import {
   authenticateAnonymousIdentity,
@@ -68,6 +76,8 @@ export type PracticeState = {
   clientTurnId: string | null;
   pendingReviewTurn: PendingReviewTurn | null;
   isDiscarding: boolean;
+  isConfirming: boolean;
+  isEnding: boolean;
 };
 
 const initialState: PracticeState = {
@@ -86,6 +96,8 @@ const initialState: PracticeState = {
   clientTurnId: null,
   pendingReviewTurn: null,
   isDiscarding: false,
+  isConfirming: false,
+  isEnding: false,
 };
 
 export const loadPracticeSession = createAsyncThunk<
@@ -164,6 +176,40 @@ export const uploadUserTurn = createAsyncThunk<
   }
 });
 
+export const confirmPendingTurn = createAsyncThunk<
+  ConfirmTurnResponse,
+  { sessionId: string; turnId: string },
+  { rejectValue: string }
+>("practice/confirmPendingTurn", async ({ sessionId, turnId }, { rejectWithValue }) => {
+  try {
+    const identity = await ensureAnonymousIdentity();
+    return await confirmUserTurn(
+      sessionId,
+      turnId,
+      { accepted: true },
+      identity.access_token,
+    );
+  } catch (error) {
+    if (isUnauthorized(error)) {
+      clearAnonymousAccessToken();
+
+      try {
+        const identity = await authenticateAnonymousIdentity();
+        return await confirmUserTurn(
+          sessionId,
+          turnId,
+          { accepted: true },
+          identity.access_token,
+        );
+      } catch (retryError) {
+        return rejectWithValue(getTurnActionErrorMessage(retryError));
+      }
+    }
+
+    return rejectWithValue(getTurnActionErrorMessage(error));
+  }
+});
+
 export const discardPendingTurn = createAsyncThunk<
   void,
   { sessionId: string; turnId: string },
@@ -186,6 +232,38 @@ export const discardPendingTurn = createAsyncThunk<
     }
 
     return rejectWithValue(getTurnActionErrorMessage(error));
+  }
+});
+
+export const endPracticeSession = createAsyncThunk<
+  EndPracticeSessionResponse,
+  { sessionId: string },
+  { rejectValue: string }
+>("practice/endSession", async ({ sessionId }, { rejectWithValue }) => {
+  try {
+    const identity = await ensureAnonymousIdentity();
+    return await postEndPracticeSession(
+      sessionId,
+      { reason: "user_finished" },
+      identity.access_token,
+    );
+  } catch (error) {
+    if (isUnauthorized(error)) {
+      clearAnonymousAccessToken();
+
+      try {
+        const identity = await authenticateAnonymousIdentity();
+        return await postEndPracticeSession(
+          sessionId,
+          { reason: "user_finished" },
+          identity.access_token,
+        );
+      } catch (retryError) {
+        return rejectWithValue(getSessionErrorMessage(retryError));
+      }
+    }
+
+    return rejectWithValue(getSessionErrorMessage(error));
   }
 });
 
@@ -285,6 +363,45 @@ const practiceSlice = createSlice({
       .addCase(discardPendingTurn.rejected, (state, action) => {
         state.isDiscarding = false;
         state.turnActionError = action.payload ?? "重说失败，请重试。";
+      })
+      .addCase(confirmPendingTurn.pending, (state) => {
+        state.isConfirming = true;
+        state.turnActionError = null;
+        state.recordingState = "aiThinking";
+      })
+      .addCase(confirmPendingTurn.fulfilled, (state, action) => {
+        state.isConfirming = false;
+
+        if (state.pendingReviewTurn) {
+          state.turns.push(mapConfirmedUserTurn(state.pendingReviewTurn));
+        }
+
+        state.turns.push(mapConfirmedAiTurn(action.payload.ai_turn));
+        state.currentStepNo = action.payload.current_step_no;
+        state.pendingReviewTurn = null;
+        state.clientTurnId = null;
+        state.turnActionError = null;
+        state.recordingState = action.payload.ai_turn.audio_url ? "aiSpeaking" : "ready";
+      })
+      .addCase(confirmPendingTurn.rejected, (state, action) => {
+        state.isConfirming = false;
+        state.recordingState = "transcriptReview";
+        state.turnActionError = action.payload ?? "确认失败，请重试。";
+      })
+      .addCase(endPracticeSession.pending, (state) => {
+        state.isEnding = true;
+        state.recordingState = "ending";
+        state.error = null;
+      })
+      .addCase(endPracticeSession.fulfilled, (state) => {
+        state.isEnding = false;
+        state.recordingState = "reporting";
+        state.sessionStatus = "reporting";
+      })
+      .addCase(endPracticeSession.rejected, (state, action) => {
+        state.isEnding = false;
+        state.recordingState = "ready";
+        state.error = action.payload ?? "结束练习失败，请重试。";
       });
   },
 });
@@ -305,6 +422,26 @@ function mapPendingReviewTurn(response: SubmitUserTurnResponse): PendingReviewTu
     asr_confidence: response.turn.asr_confidence,
     needs_retry: response.turn.needs_retry,
     hint: response.hint,
+  };
+}
+
+function mapConfirmedUserTurn(turn: PendingReviewTurn): ConversationTurn {
+  return {
+    id: turn.id,
+    turn_index: turn.turn_index,
+    speaker: "user",
+    transcript: turn.transcript,
+    asr_confidence: turn.asr_confidence,
+  };
+}
+
+function mapConfirmedAiTurn(turn: ConfirmTurnResponse["ai_turn"]): ConversationTurn {
+  return {
+    id: turn.id,
+    turn_index: turn.turn_index,
+    speaker: "ai",
+    transcript: turn.text,
+    audio_url: turn.audio_url,
   };
 }
 
