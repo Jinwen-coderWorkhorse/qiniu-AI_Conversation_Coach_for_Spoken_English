@@ -10,6 +10,7 @@ from src.api.routes.auth import router as auth_router
 from src.api.routes.health import router as health_router
 from src.api.routes.practice_sessions import router as practice_sessions_router
 from src.api.routes.practice_turns import router as practice_turns_router
+from src.api.routes.reports import router as reports_router
 from src.api.routes.scenarios import router as scenarios_router
 from src.config import get_settings
 from src.schemas.errors import ApiError, error_payload
@@ -52,6 +53,7 @@ def create_app() -> FastAPI:
     app.include_router(scenarios_router, prefix=settings.api_v1_prefix)
     app.include_router(practice_sessions_router, prefix=settings.api_v1_prefix)
     app.include_router(practice_turns_router, prefix=settings.api_v1_prefix)
+    app.include_router(reports_router, prefix=settings.api_v1_prefix)
     return app
 
 

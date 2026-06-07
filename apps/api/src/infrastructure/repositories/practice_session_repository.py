@@ -43,6 +43,15 @@ class PracticeSessionRepository:
         session.current_step_no = step_no
         return session
 
+    def mark_reporting(self, session: PracticeSession, *, ended_at) -> PracticeSession:
+        session.status = "reporting"
+        session.ended_at = ended_at
+        return session
+
+    def mark_completed(self, session: PracticeSession) -> PracticeSession:
+        session.status = "completed"
+        return session
+
     def count_created_since(self, user_id: str, since: datetime) -> int:
         stmt = select(func.count()).select_from(PracticeSession).where(
             PracticeSession.user_id == user_id,

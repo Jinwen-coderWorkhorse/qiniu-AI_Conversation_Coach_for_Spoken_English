@@ -157,6 +157,32 @@ class ConversationTurnRepository:
         self.db.add(turn)
         return turn
 
+    def list_confirmed_user_turns(self, session_id: str) -> list[ConversationTurn]:
+        stmt = (
+            select(ConversationTurn)
+            .where(
+                ConversationTurn.session_id == session_id,
+                ConversationTurn.speaker == "user",
+                ConversationTurn.status == "confirmed",
+                ConversationTurn.deleted_at.is_(None),
+            )
+            .order_by(ConversationTurn.turn_index.asc())
+        )
+        return list(self.db.scalars(stmt).all())
+
+    def count_confirmed_user_turns(self, session_id: str) -> int:
+        stmt = (
+            select(func.count())
+            .select_from(ConversationTurn)
+            .where(
+                ConversationTurn.session_id == session_id,
+                ConversationTurn.speaker == "user",
+                ConversationTurn.status == "confirmed",
+                ConversationTurn.deleted_at.is_(None),
+            )
+        )
+        return int(self.db.scalar(stmt) or 0)
+
     def count_user_turns_created_since(self, user_id: str, since: datetime) -> int:
         stmt = (
             select(func.count())

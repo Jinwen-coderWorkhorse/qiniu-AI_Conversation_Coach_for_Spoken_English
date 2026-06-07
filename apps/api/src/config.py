@@ -31,6 +31,7 @@ class Settings:
     max_audio_upload_mb: int
     max_audio_duration_seconds: int
     media_local_root: str
+    report_worker_mode: str
 
 
 @lru_cache
@@ -54,4 +55,5 @@ def get_settings() -> Settings:
             "MEDIA_LOCAL_ROOT",
             str((_api_dir() / "tmp" / "media").resolve()),
         ),
+        report_worker_mode=os.getenv("REPORT_WORKER_MODE", "sync"),
     )
