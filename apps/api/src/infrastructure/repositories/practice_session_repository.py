@@ -59,3 +59,43 @@ class PracticeSessionRepository:
             PracticeSession.deleted_at.is_(None),
         )
         return int(self.db.scalar(stmt) or 0)
+
+    def list_completed_history(
+        self,
+        user_id: str,
+        *,
+        page: int,
+        page_size: int,
+        scenario_slug: str | None = None,
+    ) -> tuple[list[PracticeSession], int]:
+        filters = [
+            PracticeSession.user_id == user_id,
+            PracticeSession.status == "completed",
+            PracticeSession.deleted_at.is_(None),
+        ]
+        if scenario_slug:
+            filters.append(PracticeSession.scenario_slug == scenario_slug)
+
+        count_stmt = select(func.count()).select_from(PracticeSession).where(*filters)
+        total = int(self.db.scalar(count_stmt) or 0)
+
+        stmt = (
+            select(PracticeSession)
+            .options(
+                selectinload(PracticeSession.scenario),
+                selectinload(PracticeSession.report),
+            )
+            .where(*filters)
+            .order_by(PracticeSession.created_at.desc())
+            .offset((page - 1) * page_size)
+            .limit(page_size)
+        )
+        return list(self.db.scalars(stmt).all()), total
+
+    def count_completed_for_user(self, user_id: str) -> int:
+        stmt = select(func.count()).select_from(PracticeSession).where(
+            PracticeSession.user_id == user_id,
+            PracticeSession.status == "completed",
+            PracticeSession.deleted_at.is_(None),
+        )
+        return int(self.db.scalar(stmt) or 0)
