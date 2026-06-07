@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef } from "react";
 
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { discardPendingTurn, uploadUserTurn } from "@/store/practiceSlice";
+import { confirmPendingTurn, discardPendingTurn, uploadUserTurn } from "@/store/practiceSlice";
 
 import { selectPracticeSession } from "./practiceSelectors";
 
@@ -53,7 +53,12 @@ export function usePracticeUserTurn({ getLatestRecording }: UsePracticeUserTurnO
   ]);
 
   const handleDiscard = useCallback(() => {
-    if (!practice.sessionId || !practice.pendingReviewTurn || practice.isDiscarding) {
+    if (
+      !practice.sessionId ||
+      !practice.pendingReviewTurn ||
+      practice.isDiscarding ||
+      practice.isConfirming
+    ) {
       return;
     }
 
@@ -67,7 +72,35 @@ export function usePracticeUserTurn({ getLatestRecording }: UsePracticeUserTurnO
         uploadAttemptRef.current = null;
       }
     });
-  }, [dispatch, practice.isDiscarding, practice.pendingReviewTurn, practice.sessionId]);
+  }, [dispatch, practice.isConfirming, practice.isDiscarding, practice.pendingReviewTurn, practice.sessionId]);
+
+  const handleConfirm = useCallback(() => {
+    if (
+      !practice.sessionId ||
+      !practice.pendingReviewTurn ||
+      practice.isConfirming ||
+      practice.isDiscarding
+    ) {
+      return;
+    }
+
+    void dispatch(
+      confirmPendingTurn({
+        sessionId: practice.sessionId,
+        turnId: practice.pendingReviewTurn.id,
+      }),
+    ).then((result) => {
+      if (confirmPendingTurn.fulfilled.match(result)) {
+        uploadAttemptRef.current = null;
+      }
+    });
+  }, [
+    dispatch,
+    practice.isConfirming,
+    practice.isDiscarding,
+    practice.pendingReviewTurn,
+    practice.sessionId,
+  ]);
 
   const retryUpload = useCallback(() => {
     if (!practice.capturedRecording || !practice.sessionId || !practice.clientTurnId) {
@@ -101,7 +134,10 @@ export function usePracticeUserTurn({ getLatestRecording }: UsePracticeUserTurnO
     pendingReviewTurn: practice.pendingReviewTurn,
     turnActionError: practice.turnActionError,
     isDiscarding: practice.isDiscarding,
+    isConfirming: practice.isConfirming,
+    handleConfirm,
     handleDiscard,
     retryUpload,
+    retryConfirm: handleConfirm,
   };
 }
