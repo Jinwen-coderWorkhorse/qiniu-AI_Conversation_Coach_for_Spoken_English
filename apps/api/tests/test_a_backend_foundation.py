@@ -8,6 +8,13 @@ def test_a_backend_foundation_flow(monkeypatch, tmp_path):
     monkeypatch.setenv("DATABASE_URL", f"sqlite:///{db_path.as_posix()}")
     monkeypatch.setenv("JWT_SECRET", "test-secret")
 
+    from src.config import get_settings
+    from src.infrastructure.db import get_engine, get_sessionmaker
+
+    get_settings.cache_clear()
+    get_engine.cache_clear()
+    get_sessionmaker.cache_clear()
+
     from src.scripts.seed_scenarios import seed_scenarios
     from src.main import app
 

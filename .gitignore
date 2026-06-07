@@ -1,6 +1,7 @@
 __pycache__/
 *.py[cod]
 *.db
+apps/api/tmp/
 .pytest_cache/
 .env
 .venv/
