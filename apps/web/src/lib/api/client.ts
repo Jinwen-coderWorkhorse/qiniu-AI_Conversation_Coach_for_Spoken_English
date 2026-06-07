@@ -45,11 +45,11 @@ export class ApiClient {
   private readonly requestIdFactory: () => string;
 
   constructor(options: ApiClientOptions = {}) {
-    this.baseUrl = stripTrailingSlash(
-      options.baseUrl ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? DEFAULT_API_BASE_URL,
-    );
+    const configuredBaseUrl = options.baseUrl ?? process.env.NEXT_PUBLIC_API_BASE_URL;
+
+    this.baseUrl = stripTrailingSlash(configuredBaseUrl || DEFAULT_API_BASE_URL);
     this.accessToken = options.accessToken;
-    this.fetcher = options.fetcher ?? fetch;
+    this.fetcher = options.fetcher ?? ((input, init) => fetch(input, init));
     this.requestIdFactory = options.requestIdFactory ?? createRequestId;
   }
 
