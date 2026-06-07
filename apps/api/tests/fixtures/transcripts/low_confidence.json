@@ -1,0 +1,14 @@
+{
+  "scenario_slug": "interview",
+  "transcript": "I work ... shopping ...",
+  "confidence": 0.52,
+  "needs_retry": true,
+  "metrics": {
+    "duration_ms": 4800,
+    "word_count": 4,
+    "speech_rate_wpm": 50,
+    "pause_count": 4
+  },
+  "audio_fixture": "low_confidence_user.webm",
+  "notes": "与 mock_provider.LOW_CONFIDENCE_TRANSCRIPT 对齐；文件名含 low_confidence 可触发 mock ASR 降置信路径。"
+}

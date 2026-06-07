@@ -1,0 +1,10 @@
+{
+  "scenario_slug": "interview",
+  "replies": [
+    "Thanks, Alex. Could you tell me more about your role in that project?",
+    "What was the biggest challenge you faced on that project?",
+    "How did you measure success for that work?",
+    "Do you have any questions for me about the team or role?"
+  ],
+  "contract": "src.infrastructure.providers.mock_provider.MOCK_AI_REPLIES.interview"
+}

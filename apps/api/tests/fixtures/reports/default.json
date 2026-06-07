@@ -1,0 +1,24 @@
+{
+  "overall_score": 76,
+  "pronunciation_score": 78,
+  "fluency_score": 70,
+  "grammar_score": 76,
+  "expression_score": 72,
+  "level_description": "可以完成基本沟通",
+  "one_sentence_summary": "你能回答主要问题，但句子还偏短。",
+  "feedback_items": [
+    {
+      "type": "pronunciation",
+      "explanation": "这轮回答识别置信度略低，建议放慢语速，并把 project 这类关键词说完整。",
+      "practice_text": "I worked on a project about online shopping."
+    },
+    {
+      "type": "expression",
+      "original_text": "I worked on a shopping app.",
+      "suggestion_text": "I worked on a shopping app, and I was responsible for the checkout flow.",
+      "explanation": "可以补充职责，让表达更完整。",
+      "practice_text": "I worked on a shopping app, and I was responsible for the checkout flow."
+    }
+  ],
+  "contract": "src.infrastructure.providers.mock_provider.MOCK_REPORT"
+}

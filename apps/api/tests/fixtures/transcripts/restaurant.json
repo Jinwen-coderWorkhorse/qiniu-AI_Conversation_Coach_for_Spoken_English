@@ -1,0 +1,14 @@
+{
+  "scenario_slug": "restaurant",
+  "transcript": "We have a reservation under Alex. Table for two, please.",
+  "confidence": 0.89,
+  "needs_retry": false,
+  "metrics": {
+    "duration_ms": 5400,
+    "word_count": 10,
+    "speech_rate_wpm": 111,
+    "pause_count": 1
+  },
+  "audio_fixture": "restaurant_user.webm",
+  "notes": "餐厅点餐场景 mock transcript，用于预订与人数说明轮次。"
+}
