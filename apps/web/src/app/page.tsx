@@ -1,3 +1,5 @@
+import { HomeScenarios } from "@/components/home/HomeScenarios";
+
 export default function HomePage() {
   return (
     <section className="home-shell" aria-labelledby="home-title">
@@ -7,17 +9,7 @@ export default function HomePage() {
         <p className="home-summary">选择一个真实场景，用几分钟完成一轮口语练习。</p>
       </div>
 
-      <div className="scenario-panel" aria-label="练习场景">
-        <div className="section-heading">
-          <span>练习场景</span>
-          <span>3 个入口</span>
-        </div>
-        <div className="scenario-slots" aria-hidden="true">
-          <div className="scenario-slot" />
-          <div className="scenario-slot" />
-          <div className="scenario-slot" />
-        </div>
-      </div>
+      <HomeScenarios />
     </section>
   );
 }
