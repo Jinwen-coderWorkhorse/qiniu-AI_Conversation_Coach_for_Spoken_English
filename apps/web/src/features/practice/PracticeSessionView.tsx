@@ -1,12 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo } from "react";
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { loadPracticeSession, resetPractice } from "@/store/practiceSlice";
+import { endPracticeSession, loadPracticeSession, resetPractice } from "@/store/practiceSlice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 
 import { AiCurrentUtterance } from "./AiCurrentUtterance";
+import { EndPracticeDialog } from "./EndPracticeDialog";
 import { CapturedRecordingSummary } from "./CapturedRecordingSummary";
 import { MicPermissionAlert } from "./MicPermissionAlert";
 import { PracticeHeader } from "./PracticeHeader";
@@ -38,8 +40,10 @@ const BLOCKED_TALK_STATES = new Set([
 ]);
 
 export function PracticeSessionView({ sessionId }: PracticeSessionViewProps) {
+  const router = useRouter();
   const dispatch = useAppDispatch();
   const practice = useAppSelector(selectPracticeSession);
+  const [isEndDialogOpen, setIsEndDialogOpen] = useState(false);
   const currentAiTurn = selectCurrentAiTurn(practice.turns);
   const recentTurns = selectRecentTurns(practice.turns, currentAiTurn?.id);
 
@@ -65,6 +69,15 @@ export function PracticeSessionView({ sessionId }: PracticeSessionViewProps) {
     practice.capturedRecording !== null && practice.recordingState === "uploading";
   const showTranscriptReview =
     practice.recordingState === "transcriptReview" && practice.pendingReviewTurn !== null;
+
+  const handleConfirmEndPractice = useCallback(async () => {
+    const result = await dispatch(endPracticeSession({ sessionId }));
+
+    if (endPracticeSession.fulfilled.match(result)) {
+      setIsEndDialogOpen(false);
+      router.push(`/reports/${sessionId}`);
+    }
+  }, [dispatch, router, sessionId]);
 
   const talkButtonDisabled = useMemo(() => {
     return (
@@ -119,8 +132,14 @@ export function PracticeSessionView({ sessionId }: PracticeSessionViewProps) {
                 scenario={practice.scenario}
                 currentStepNo={practice.currentStepNo}
                 sessionStatus={practice.sessionStatus ?? "in_progress"}
-                endPracticeDisabled={isRecording || practice.recordingState !== "ready"}
+                endPracticeDisabled={
+                  isRecording ||
+                  practice.recordingState !== "ready" ||
+                  practice.isEnding ||
+                  practice.isConfirming
+                }
                 isRecording={isRecording}
+                onEndPractice={() => setIsEndDialogOpen(true)}
               />
             ) : (
               <div className="practice-header-loading" aria-busy="true">
@@ -158,7 +177,9 @@ export function PracticeSessionView({ sessionId }: PracticeSessionViewProps) {
             {showTranscriptReview && practice.pendingReviewTurn ? (
               <TranscriptReview
                 turn={practice.pendingReviewTurn}
+                isConfirming={userTurn.isConfirming}
                 isDiscarding={practice.isDiscarding}
+                onConfirm={userTurn.handleConfirm}
                 onRetry={userTurn.handleDiscard}
               />
             ) : null}
@@ -180,6 +201,13 @@ export function PracticeSessionView({ sessionId }: PracticeSessionViewProps) {
           />
         </div>
       ) : null}
+
+      <EndPracticeDialog
+        isOpen={isEndDialogOpen}
+        isSubmitting={practice.isEnding}
+        onCancel={() => setIsEndDialogOpen(false)}
+        onConfirm={() => void handleConfirmEndPractice()}
+      />
     </section>
   );
 }

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef } from "react";
 
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { discardPendingTurn, uploadUserTurn } from "@/store/practiceSlice";
+import { confirmPendingTurn, discardPendingTurn, uploadUserTurn } from "@/store/practiceSlice";
 
 import { selectPracticeSession } from "./practiceSelectors";
 
@@ -49,6 +49,30 @@ export function usePracticeUserTurn({ getLatestRecording }: UsePracticeUserTurnO
     getLatestRecording,
     practice.capturedRecording,
     practice.clientTurnId,
+    practice.sessionId,
+  ]);
+
+  const handleConfirm = useCallback(() => {
+    if (
+      !practice.sessionId ||
+      !practice.pendingReviewTurn ||
+      practice.isConfirming ||
+      practice.isDiscarding
+    ) {
+      return;
+    }
+
+    void dispatch(
+      confirmPendingTurn({
+        sessionId: practice.sessionId,
+        turnId: practice.pendingReviewTurn.id,
+      }),
+    );
+  }, [
+    dispatch,
+    practice.isConfirming,
+    practice.isDiscarding,
+    practice.pendingReviewTurn,
     practice.sessionId,
   ]);
 
@@ -100,7 +124,9 @@ export function usePracticeUserTurn({ getLatestRecording }: UsePracticeUserTurnO
   return {
     pendingReviewTurn: practice.pendingReviewTurn,
     turnActionError: practice.turnActionError,
+    isConfirming: practice.isConfirming,
     isDiscarding: practice.isDiscarding,
+    handleConfirm,
     handleDiscard,
     retryUpload,
   };

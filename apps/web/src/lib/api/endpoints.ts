@@ -2,9 +2,13 @@ import { apiClient, type ApiClient } from "./client";
 import type {
   AnonymousAuthRequest,
   AnonymousAuthResponse,
+  ConfirmTurnRequest,
+  ConfirmTurnResponse,
   CreatePracticeSessionRequest,
   CreatePracticeSessionResponse,
   DiscardTurnResponse,
+  EndPracticeSessionRequest,
+  EndPracticeSessionResponse,
   HistoryListResponse,
   ListPracticeSessionsQuery,
   PracticeSessionDetail,
@@ -127,6 +131,33 @@ export function discardUserTurn(
   return client.post<DiscardTurnResponse>(
     `/practice-sessions/${encodeURIComponent(sessionId)}/turns/${encodeURIComponent(turnId)}/discard`,
     undefined,
+    { accessToken },
+  );
+}
+
+export function confirmUserTurn(
+  sessionId: string,
+  turnId: string,
+  payload: ConfirmTurnRequest,
+  accessToken: string,
+  client: ApiClient = apiClient,
+) {
+  return client.post<ConfirmTurnResponse>(
+    `/practice-sessions/${encodeURIComponent(sessionId)}/turns/${encodeURIComponent(turnId)}/confirm`,
+    payload,
+    { accessToken },
+  );
+}
+
+export function endPracticeSession(
+  sessionId: string,
+  payload: EndPracticeSessionRequest,
+  accessToken: string,
+  client: ApiClient = apiClient,
+) {
+  return client.post<EndPracticeSessionResponse>(
+    `/practice-sessions/${encodeURIComponent(sessionId)}/end`,
+    payload,
     { accessToken },
   );
 }
