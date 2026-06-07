@@ -92,7 +92,11 @@ function getTalkHint(recordingState: PracticeRecordingState, isRecording: boolea
     case "transcribing":
       return "正在识别你的语音，请稍候。";
     case "transcriptReview":
-      return "请先查看识别结果，或点击重说后重新录音。";
+      return "请先查看识别结果，或确认 / 重说。";
+    case "aiThinking":
+      return "AI 正在回应...";
+    case "aiSpeaking":
+      return "AI 正在发言";
     default:
       return "按住按钮开始说话，松开后自动上传并识别。";
   }

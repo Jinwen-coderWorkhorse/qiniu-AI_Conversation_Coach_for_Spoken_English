@@ -20,6 +20,7 @@ import {
   selectPracticeSession,
   selectRecentTurns,
 } from "./practiceSelectors";
+import { usePracticeAiPlayback } from "./usePracticeAiPlayback";
 import { usePracticeRecording } from "./usePracticeRecording";
 import { usePracticeUserTurn } from "./usePracticeUserTurn";
 
@@ -47,6 +48,7 @@ export function PracticeSessionView({ sessionId }: PracticeSessionViewProps) {
   const userTurn = usePracticeUserTurn({
     getLatestRecording: recording.getLatestRecording,
   });
+  usePracticeAiPlayback();
 
   useEffect(() => {
     dispatch(resetPractice());
@@ -73,11 +75,13 @@ export function PracticeSessionView({ sessionId }: PracticeSessionViewProps) {
       isSessionError ||
       practice.sessionStatus !== "in_progress" ||
       BLOCKED_TALK_STATES.has(practice.recordingState) ||
-      practice.isDiscarding
+      practice.isDiscarding ||
+      practice.isConfirming
     );
   }, [
     isLoading,
     isSessionError,
+    practice.isConfirming,
     practice.isDiscarding,
     practice.recordingState,
     practice.sessionStatus,
@@ -136,7 +140,12 @@ export function PracticeSessionView({ sessionId }: PracticeSessionViewProps) {
               />
             ) : null}
 
-            <AiCurrentUtterance turn={currentAiTurn} isLoading={isLoading} />
+            <AiCurrentUtterance
+              turn={currentAiTurn}
+              recordingState={practice.recordingState}
+              showTextFallback={practice.showAiTextFallback}
+              isLoading={isLoading}
+            />
             <RecentTranscript turns={recentTurns} />
             <PracticeStatus
               recordingState={practice.recordingState}
@@ -152,13 +161,20 @@ export function PracticeSessionView({ sessionId }: PracticeSessionViewProps) {
                     ? userTurn.retryUpload
                     : undefined
                 }
+                onRetryConfirm={
+                  practice.recordingState === "transcriptReview" && practice.pendingReviewTurn
+                    ? userTurn.retryConfirm
+                    : undefined
+                }
               />
             ) : null}
 
             {showTranscriptReview && practice.pendingReviewTurn ? (
               <TranscriptReview
                 turn={practice.pendingReviewTurn}
+                isConfirming={practice.isConfirming}
                 isDiscarding={practice.isDiscarding}
+                onConfirm={userTurn.handleConfirm}
                 onRetry={userTurn.handleDiscard}
               />
             ) : null}

@@ -854,6 +854,27 @@ h1 {
   gap: 10px;
 }
 
+.practice-transcript-review-actions .primary-action,
+.practice-transcript-review-actions .secondary-action {
+  min-width: 96px;
+}
+
+.practice-ai-utterance-status {
+  margin: 0;
+  color: var(--color-accent);
+  font-size: 14px;
+}
+
+.practice-ai-utterance-fallback {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(8, 117, 104, 0.08);
+  color: var(--color-muted);
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+
 .practice-turn-action-error {
   display: grid;
   gap: 10px;

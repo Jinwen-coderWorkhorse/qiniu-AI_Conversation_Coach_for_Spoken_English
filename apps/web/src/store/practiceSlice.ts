@@ -2,12 +2,13 @@ import { createAsyncThunk, createSlice, type PayloadAction } from "@reduxjs/tool
 
 import { ApiRequestError } from "@/lib/api/client";
 import type {
+  ConfirmTurnResponse,
   ConversationTurn,
   PracticeSessionDetail,
   SessionScenario,
   SubmitUserTurnResponse,
 } from "@/lib/api/contracts";
-import { discardUserTurn, getPracticeSession, submitUserTurn } from "@/lib/api/endpoints";
+import { confirmUserTurn, discardUserTurn, getPracticeSession, submitUserTurn } from "@/lib/api/endpoints";
 import { normalizeUploadMimeType } from "@/lib/audio/uploadMimeType";
 import {
   authenticateAnonymousIdentity,
@@ -68,6 +69,8 @@ export type PracticeState = {
   clientTurnId: string | null;
   pendingReviewTurn: PendingReviewTurn | null;
   isDiscarding: boolean;
+  isConfirming: boolean;
+  showAiTextFallback: boolean;
 };
 
 const initialState: PracticeState = {
@@ -86,6 +89,8 @@ const initialState: PracticeState = {
   clientTurnId: null,
   pendingReviewTurn: null,
   isDiscarding: false,
+  isConfirming: false,
+  showAiTextFallback: false,
 };
 
 export const loadPracticeSession = createAsyncThunk<
@@ -189,6 +194,30 @@ export const discardPendingTurn = createAsyncThunk<
   }
 });
 
+export const confirmPendingTurn = createAsyncThunk<
+  ConfirmTurnResponse,
+  { sessionId: string; turnId: string },
+  { rejectValue: string }
+>("practice/confirmPendingTurn", async ({ sessionId, turnId }, { rejectWithValue }) => {
+  try {
+    const identity = await ensureAnonymousIdentity();
+    return await confirmUserTurn(sessionId, turnId, { accepted: true }, identity.access_token);
+  } catch (error) {
+    if (isUnauthorized(error)) {
+      clearAnonymousAccessToken();
+
+      try {
+        const identity = await authenticateAnonymousIdentity();
+        return await confirmUserTurn(sessionId, turnId, { accepted: true }, identity.access_token);
+      } catch (retryError) {
+        return rejectWithValue(getTurnActionErrorMessage(retryError));
+      }
+    }
+
+    return rejectWithValue(getTurnActionErrorMessage(error));
+  }
+});
+
 const practiceSlice = createSlice({
   name: "practice",
   initialState,
@@ -236,6 +265,7 @@ const practiceSlice = createSlice({
     },
     setClientTurnId: (state, action: PayloadAction<string>) => {
       state.clientTurnId = action.payload;
+      state.showAiTextFallback = false;
     },
     clearTurnActionError: (state) => {
       state.turnActionError = null;
@@ -279,12 +309,27 @@ const practiceSlice = createSlice({
         state.isDiscarding = false;
         state.pendingReviewTurn = null;
         state.clientTurnId = null;
+        state.showAiTextFallback = false;
         state.recordingState = "ready";
         state.turnActionError = null;
       })
       .addCase(discardPendingTurn.rejected, (state, action) => {
         state.isDiscarding = false;
         state.turnActionError = action.payload ?? "重说失败，请重试。";
+      })
+      .addCase(confirmPendingTurn.pending, (state) => {
+        state.isConfirming = true;
+        state.recordingState = "aiThinking";
+        state.turnActionError = null;
+      })
+      .addCase(confirmPendingTurn.fulfilled, (state, action) => {
+        state.isConfirming = false;
+        applyConfirmResponse(state, action.payload, state.pendingReviewTurn);
+      })
+      .addCase(confirmPendingTurn.rejected, (state, action) => {
+        state.isConfirming = false;
+        state.recordingState = "transcriptReview";
+        state.turnActionError = action.payload ?? "确认失败，请重试。";
       });
   },
 });
@@ -306,6 +351,53 @@ function mapPendingReviewTurn(response: SubmitUserTurnResponse): PendingReviewTu
     needs_retry: response.turn.needs_retry,
     hint: response.hint,
   };
+}
+
+function applyConfirmResponse(
+  state: PracticeState,
+  response: ConfirmTurnResponse,
+  pendingReviewTurn: PendingReviewTurn | null,
+) {
+  state.currentStepNo = response.current_step_no;
+  state.pendingReviewTurn = null;
+  state.clientTurnId = null;
+  state.turnActionError = null;
+
+  if (pendingReviewTurn) {
+    upsertConversationTurn(state, {
+      id: response.user_turn_id,
+      turn_index: pendingReviewTurn.turn_index,
+      speaker: "user",
+      transcript: pendingReviewTurn.transcript,
+      asr_confidence: pendingReviewTurn.asr_confidence,
+    });
+  }
+
+  upsertConversationTurn(state, {
+    id: response.ai_turn.id,
+    turn_index: response.ai_turn.turn_index,
+    speaker: "ai",
+    transcript: response.ai_turn.text,
+    audio_url: response.ai_turn.audio_url ?? null,
+  });
+
+  state.recordingState = response.ai_turn.audio_url ? "aiSpeaking" : "ready";
+  state.showAiTextFallback = !response.ai_turn.audio_url;
+}
+
+function upsertConversationTurn(state: PracticeState, turn: ConversationTurn) {
+  const existingIndex = state.turns.findIndex((item) => item.id === turn.id);
+
+  if (existingIndex >= 0) {
+    state.turns[existingIndex] = {
+      ...state.turns[existingIndex],
+      ...turn,
+    };
+    return;
+  }
+
+  state.turns.push(turn);
+  state.turns.sort((left, right) => left.turn_index - right.turn_index);
 }
 
 function isUnauthorized(error: unknown) {
@@ -352,7 +444,9 @@ function getTurnActionErrorMessage(error: unknown) {
       case "TURN_NOT_FOUND":
         return "识别结果不存在。";
       case "TURN_NOT_PENDING":
-        return "当前识别结果不可重说。";
+        return "该识别结果已处理。";
+      case "LLM_FAILED":
+        return "AI 回复失败，请重试。";
       default:
         return error.message || "操作失败，请稍后重试。";
     }

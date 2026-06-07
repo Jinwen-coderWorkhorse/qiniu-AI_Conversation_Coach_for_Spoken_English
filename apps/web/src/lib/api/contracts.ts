@@ -236,3 +236,23 @@ export type SubmitUserTurnPayload = {
 export type DiscardTurnResponse = {
   status: "discarded";
 };
+
+export type AiTurn = {
+  id: string;
+  turn_index: number;
+  speaker: "ai";
+  text: string;
+  audio_url?: string | null;
+  audio_mime_type?: string | null;
+};
+
+export type ConfirmTurnRequest = {
+  accepted: true;
+};
+
+export type ConfirmTurnResponse = {
+  status: "ai_reply_ready";
+  user_turn_id: string;
+  ai_turn: AiTurn;
+  current_step_no: number;
+};
