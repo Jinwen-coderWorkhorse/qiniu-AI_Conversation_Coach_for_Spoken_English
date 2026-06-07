@@ -17,6 +17,7 @@ from src.schemas.errors import ApiError
 from src.schemas.practice import (
     ConversationTurnResponse,
     CreatePracticeSessionResponse,
+    DiscardTurnResponse,
     OpeningMessageResponse,
     PracticeSessionDetailResponse,
     SessionScenarioResponse,
@@ -110,3 +111,27 @@ class PracticeSessionService:
                 for turn in turns
             ],
         )
+
+    def discard_user_turn(
+        self,
+        *,
+        session: PracticeSession,
+        turn_id: str,
+    ) -> DiscardTurnResponse:
+        if session.status != "in_progress":
+            raise ApiError(
+                "SESSION_NOT_IN_PROGRESS",
+                "当前练习已结束。",
+                status.HTTP_409_CONFLICT,
+            )
+
+        turn = self.turns.get_by_id_for_session(session.id, turn_id)
+        if turn is None or turn.speaker != "user":
+            raise ApiError("TURN_NOT_FOUND", "识别结果不存在。", status.HTTP_404_NOT_FOUND)
+
+        if turn.status != "pending":
+            raise ApiError("TURN_NOT_PENDING", "当前识别结果不可重说。", status.HTTP_409_CONFLICT)
+
+        self.turns.mark_user_turn_discarded(turn)
+        self.db.commit()
+        return DiscardTurnResponse(status="discarded")
