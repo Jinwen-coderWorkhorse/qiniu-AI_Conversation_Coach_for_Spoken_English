@@ -6,7 +6,7 @@
 
 ## Demo 视频（评委请先看）
 
-**在线观看（推荐）：** [▶ B 站 Demo 视频](https://www.bilibili.com/video/BV1uJE862EuC/) — 约 7 分钟，完整演示产品功能、系统架构与开发过程
+**在线观看（推荐）：** [▶ B 站 Demo 视频](https://www.bilibili.com/video/BV1uJE862EuC/) — 完整演示产品功能、系统架构与开发过程
 
 > 本地备份：`docs/demo/project-demo.mp4`（Markdown 预览可播放；GitHub 网页请点上方 B 站链接观看）
 
