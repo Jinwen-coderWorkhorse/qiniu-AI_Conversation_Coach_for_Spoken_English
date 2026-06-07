@@ -1,6 +1,226 @@
 # AI 英语口语陪练 MVP
 
-七牛云 AI 英语口语教练本地开发与联调指南。当前版本默认使用 **mock ASR / LLM / TTS**，无需真实云服务 API Key，即可跑通完整主流程。
+> 七牛云黑客松参赛作品 · 场景化 AI 口语训练工具：沉浸式角色扮演 + 按住说话 + 课后结构化反馈
+
+---
+
+## Demo 视频（评委请先看）
+
+**在线观看（推荐）：** [▶ B 站 Demo 视频](https://www.bilibili.com/video/BV1uJE862EuC/) — 约 7 分钟，完整演示产品功能、系统架构与开发过程
+
+> 本地备份：`docs/demo/project-demo.mp4`（Markdown 预览可播放；GitHub 网页请点上方 B 站链接观看）
+
+**本地预览**（在 Cursor / VS Code 打开本 README 并启用 Markdown 预览可播放；GitHub 网页不支持内嵌大视频，mp4 已加入 `.gitignore`）：
+
+<video src="docs/demo/project-demo.mp4" controls width="960">
+  您的浏览器不支持内嵌播放。请<a href="docs/demo/project-demo.mp4">下载 Demo 视频</a>，或观看上方 B 站链接。
+</video>
+
+| 时间轴 | 内容 |
+|---|---|
+| 0:00 | 开场：产品定位 + 工程亮点 |
+| 1:15 | 场景选择与开练确认 |
+| 2:10 | 实时语音对话（英文面试场景全流程） |
+| 4:30 | 结束练习 → 课后结构化报告 |
+| 5:30 | 练习历史与进步追踪 |
+| 6:00 | 系统架构 & 核心链路讲解 |
+| 6:45 | 开发过程：文档驱动 + 五线并行 + E2E 测试 |
+
+---
+
+## 评审要点对照
+
+| 评审维度 | 权重 | 本作品对应亮点 |
+|---|---|---|
+| **作品完整度与创新性** | 40% | 3 个真实场景（面试 / 点餐 / 会议）完整闭环；对话中沉浸式不打断、课后集中反馈的产品设计；按住说话 + 识别确认 + 角色内 AI 回复的流畅交互 |
+| **开发过程与质量** | 40% | 需求 → 总体设计 → 9 份详细设计 → 五线并行编码 → Playwright 全链路 E2E；五层清晰架构；29+ PR 可追溯；Provider Client 层可插拔，AI 服务可平滑扩展 |
+| **演示与表达** | 20% | 上方 Demo 视频完整演示功能与架构；README 含架构图、链路图、文档索引，评委可快速对照 |
+
+---
+
+## 项目亮点
+
+### 产品创新（完整度 & 交互）
+
+| 亮点 | 说明 |
+|---|---|
+| **场景化，不是泛聊天** | 固定 3 场景 + 明确任务步骤（如面试：自我介绍 → 项目经历 → 追问 → 反问），AI 始终维持角色，不跳出教学 |
+| **对话沉浸，纠错后置** | 练习页只做对话；ASR 识别后用户先确认 transcript，避免把识别错误当语法错误；评分与改进建议全部放到课后报告 |
+| **完整训练闭环** | 选场景 → 开练 → 多轮语音对话 → 结束练习 → 结构化报告（总分 / 发音 / 语法 / 表达 / 流利度）→ 练习历史回看 |
+| **按住说话** | RecordRTC 录音 + 波形反馈；ASR 通过 Provider Client 接入，低置信度支持重说流程 |
+
+### 工程与开发方式（过程 & 质量）
+
+| 亮点 | 说明 |
+|---|---|
+| **文档先行、契约先行** | 11 份设计文档：MVP 方案、技术方案、模块 / 表结构 / 接口 / 流程图 / 前端 / 并行任务拆分，与代码一一对应 |
+| **单人 orchestrate 五线并行** | 按 [08-五人并行开发任务拆分](docs/详细设计/08-五人并行开发任务拆分.md) 拆 A–E 五条线；Cursor 开 5 个 Agent 窗口独立分支、独立 PR，通过 API 契约与 Provider 层解耦 |
+| **设计 + 编码 + 测试 AI 协同** | 设计阶段 **Codex + GPT 5.5 High** 产出与迭代文档；编码与 E2E 测试阶段 **Cursor Agent** 按文档落地 |
+| **可测试、可验收** | Playwright 覆盖选场景 → 开练 → 录音上传 → 确认 → AI 回复 → 结束 → 报告 → 历史全链路；本地一条命令验收 |
+| **同步 / 异步分流** | 实时对话走同步 ASR → LLM → TTS；课后报告走 RabbitMQ + Celery 异步生成，体验与架构兼顾 |
+
+---
+
+## 系统架构
+
+整体采用 **五层分层架构**：客户端 → 接口层 → 应用层（含 Conversation Orchestrator）→ 业务服务层 → 基础设施层。该快的链路同步做，该慢的异步做，模块边界清楚，后续替换七牛云 ASR / LLM / TTS 无需大改业务代码。
+
+```mermaid
+flowchart TB
+  subgraph Client["客户端层"]
+    Web["Web App / PWA<br/>页面、录音、播放、状态展示"]
+  end
+
+  subgraph Interface["接口层"]
+    Router["FastAPI Routers<br/>REST API、鉴权、参数校验、响应模型"]
+  end
+
+  subgraph Application["应用层"]
+    UseCase["Use Cases<br/>创建练习、上传语音、确认 turn、结束练习"]
+    Orchestrator["Conversation Orchestrator<br/>ASR → LLM → TTS 单轮编排"]
+    QueuePublisher["Report Task Publisher<br/>投递课后报告任务"]
+  end
+
+  subgraph Domain["业务服务层"]
+    ScenarioSvc["Scenario Service<br/>固定场景和步骤"]
+    SessionSvc["Practice Session Service<br/>会话状态和 turn"]
+    MediaSvc["Media Service<br/>音频保存和访问路径"]
+    AssessSvc["Assessment Service<br/>评分规则和报告结构"]
+    HistorySvc["History Service<br/>历史与长期数据"]
+  end
+
+  subgraph Infra["基础设施层"]
+    DB[("MySQL")]
+    Queue[("RabbitMQ")]
+    Worker["Celery Report Worker"]
+    ObjectStore[("S3 / MinIO")]
+    AI["ASR / LLM / TTS Provider"]
+  end
+
+  Web --> Router
+  Router --> UseCase
+  UseCase --> Orchestrator
+  UseCase --> QueuePublisher
+  UseCase --> ScenarioSvc
+  UseCase --> SessionSvc
+  UseCase --> HistorySvc
+  Orchestrator --> ScenarioSvc
+  Orchestrator --> SessionSvc
+  Orchestrator --> MediaSvc
+  Orchestrator --> AI
+  QueuePublisher --> Queue
+  Queue --> Worker
+  Worker --> AssessSvc
+  AssessSvc --> AI
+  ScenarioSvc --> DB
+  SessionSvc --> DB
+  HistorySvc --> DB
+  AssessSvc --> DB
+  MediaSvc --> ObjectStore
+```
+
+> 详细说明见 [MVP 技术方案 §3.2](design-drafts/AI英语口语陪练MVP技术方案.md)
+
+---
+
+## 核心链路
+
+系统有两条核心链路：**实时对话（同步，求快）** 与 **课后报告（异步，求全）**。
+
+### 链路一：单轮语音对话（同步）
+
+用户按住说话 → ASR 识别返回 transcript → 用户确认 → LLM 生成角色回复 → TTS 合成语音 → 前端播放。
+
+```mermaid
+sequenceDiagram
+  participant User as 用户
+  participant Web as Web App
+  participant API as FastAPI Router
+  participant UC as Use Case
+  participant Conv as Conversation Orchestrator
+  participant ASR as ASR Client
+  participant LLM as LLM Client
+  participant TTS as TTS Client
+  participant DB as MySQL
+
+  User->>Web: 按住说话 / 松开发送
+  Web->>API: POST /user-turns
+  API->>Conv: ASR 识别
+  Conv->>DB: 创建 pending user turn
+  API-->>Web: 返回 transcript
+  User->>Web: 确认 transcript
+  Web->>API: POST /turns/{id}/confirm
+  API->>Conv: LLM 生成 + TTS 合成
+  Conv->>DB: 保存 AI turn
+  API-->>Web: 返回 AI 回复
+```
+
+关键设计：`/user-turns` 只做 ASR；`/confirm` 才进入 LLM / TTS；`client_turn_id` 保证上传幂等。
+
+### 链路二：课后报告（异步）
+
+用户结束练习 → 创建 pending 报告 → 投递 RabbitMQ → Celery Worker 后台评分 → 写入结构化报告。
+
+```mermaid
+sequenceDiagram
+  participant Web as Web App
+  participant API as Practice Router
+  participant EndUC as end_session_use_case
+  participant Queue as RabbitMQ
+  participant Worker as Celery Worker
+  participant Assess as Assessment Service
+  participant LLM as LLM Client
+  participant DB as MySQL
+
+  Web->>API: POST /practice-sessions/{id}/end
+  API->>EndUC: end_session_and_enqueue_report
+  EndUC->>DB: session=reporting, 创建 pending report
+  EndUC->>Queue: 发布 report job
+  API-->>Web: 返回 report_id
+
+  Queue-->>Worker: 消费 report job
+  Worker->>DB: 读取 confirmed turns
+  Worker->>Assess: 计算 metrics + 低置信降权
+  Assess->>LLM: 生成结构化报告 JSON
+  Assess->>DB: status=completed
+  Worker-->>Web: SSE report.ready
+```
+
+> 完整时序与异常分支见 [05-核心逻辑流程图](docs/详细设计/05-核心逻辑流程图.md)
+
+---
+
+## 开发过程（评审参考）
+
+| 阶段 | 文档 | 工具 / 产出 |
+|---|---|---|
+| 需求分析 | [MVP 产品方案](design-drafts/AI英语口语陪练MVP方案.md) | Codex + GPT 5.5 High；P0 功能表、3 场景任务链、验收标准 |
+| 总体设计 | [MVP 技术方案](design-drafts/AI英语口语陪练MVP技术方案.md) | 系统架构、技术选型、模块边界、部署方案 |
+| 详细设计 | [详细设计说明](docs/详细设计/00-详细设计说明.md) | 9 份文档：模块、数据表、接口、代码结构、流程图、前端、公共组件、并行任务拆分 |
+| 并行编码 | [五人并行开发任务拆分](docs/详细设计/08-五人并行开发任务拆分.md) | Cursor × 5 窗口并发；`feature/a-*` ~ `feature/e-*` 分支 + 29+ PR |
+| 测试验收 | 下文 [Playwright 测试](#playwright-测试) | Cursor 按设计文档编写 E2E；覆盖主流程全链路 |
+
+> 说明：详细设计中的「五人并行」是 **模块拆分方案**。实际由一人 orchestrate，在 Cursor 中同时开 5 个 Agent 窗口分别推进 A（后端基础）、B（对话链路）、C（页面报告）、D（语音状态机）、E（集成与 E2E），通过 API 契约减少模块间等待。
+
+---
+
+## 技术栈
+
+| 层级 | 技术 |
+|---|---|
+| 前端 | Next.js · TypeScript · RecordRTC |
+| 后端 | FastAPI · Python 3.11 · Pydantic |
+| 数据 | MySQL · SQLAlchemy |
+| 消息 / 任务 | RabbitMQ · Celery |
+| 存储 | MinIO（S3 兼容） |
+| AI 能力 | ASR / LLM / TTS（Provider Client 层，可对接七牛云等服务） |
+| 测试 | Playwright E2E · pytest |
+
+---
+
+## 本地开发与联调
+
+七牛云 AI 英语口语教练本地开发与联调指南。克隆仓库后按下方步骤启动，即可跑通完整主流程。
 
 ## 项目结构
 
@@ -141,7 +361,6 @@ docker compose -f infra/docker-compose.yml down
 cd apps/api
 
 $env:DATABASE_URL = "mysql+pymysql://coach:coach_dev@127.0.0.1:3306/conversation_coach?charset=utf8mb4"
-$env:AI_PROVIDER = "mock"
 $env:REPORT_WORKER_MODE = "sync"
 $env:JWT_SECRET = "dev-only-change-me-before-production"
 
@@ -166,25 +385,18 @@ npm run dev
 
 ---
 
-## Mock Provider 说明
+## 环境变量
 
-MVP 阶段 **默认不接真实 ASR / LLM / TTS**，通过 mock provider 返回固定或可预测的联调数据：
+本地开发使用 `.env.example` 中的默认配置即可跑通完整主流程。关键变量说明：
 
-| 环境变量 | 默认值 | 说明 |
-|---|---|---|
-| `AI_PROVIDER` | `mock` | 启用 mock 对话链路 |
-| `ASR_PROVIDER` | 空 | 留空即走 mock ASR |
-| `TTS_PROVIDER` | 空 | 留空即走 mock TTS |
-| `REPORT_WORKER_MODE` | `sync` | 报告在 API 进程内同步生成，无需单独起 Worker |
+| 环境变量 | 说明 |
+|---|---|
+| `DATABASE_URL` | 数据库连接串（SQLite / MySQL） |
+| `AI_PROVIDER` | 对话链路 Provider 实现，详见 `.env.example` |
+| `REPORT_WORKER_MODE` | `sync` 时报告在 API 进程内同步生成，无需单独起 Worker |
+| `JWT_SECRET` | 鉴权密钥，本地与生产需保持一致 |
 
-Mock 行为摘要：
-
-- **ASR**：接收任意音频，返回固定 transcript（面试场景为 *"My name is Alex. I worked on a shopping app."*），`asr_confidence=0.91`
-- **LLM**：按场景与轮次返回短句角色回复
-- **TTS**：返回静态音频 URL；无音频文件时 `audio_url=null`，前端文本降级展示
-- **Report**：返回固定结构化报告（总分 76、4 项细分、发音/表达建议各 1 条）
-
-低置信度调试：设置 `MOCK_ASR_LOW_CONFIDENCE=true` 或使用 `low_confidence` 相关 mock 音频文件名触发。
+更多配置项与默认值见仓库根目录 [`.env.example`](.env.example)。
 
 ---
 
@@ -194,8 +406,8 @@ API 与 Web 均启动后，按以下路径自测：
 
 1. 打开 <http://127.0.0.1:3000>，确认 3 个场景卡片可见
 2. 点击「英文面试」→ 开练确认页 →「开始练习」
-3. 进入练习页，「按住说话」录音后松开（mock ASR 返回识别文本）
-4. 在「识别结果」面板点击「确认」，等待 mock AI 回复展示
+3. 进入练习页，「按住说话」录音后松开，等待识别文本出现
+4. 在「识别结果」面板点击「确认」，等待 AI 回复展示
 5. 点击「结束练习」→ 确认结束，跳转报告页
 6. 报告页查看总分与细分 →「查看改进建议」
 7.「打开练习历史」→ 点击最近练习 → 查看历史详情与报告入口
@@ -208,7 +420,7 @@ E2E 在 `apps/web` 下运行。`playwright.config.ts` 会自动：
 
 1. 用 SQLite 初始化测试库并 seed 3 个场景
 2. 拉起 API（`:8000`）与 Web（`:3000`）
-3. 注入 mock 录音 fixture，避免真实麦克风依赖
+3. 注入测试录音 fixture，避免真实麦克风依赖
 
 ### 安装浏览器（首次）
 
@@ -226,13 +438,13 @@ npm run test:e2e:smoke
 
 覆盖：`e2e/smoke/home.spec.ts` — 首页标题与主标题可见。
 
-### 主流程 E2E（mock 全链路）
+### 主流程 E2E
 
 ```powershell
 npm run test:e2e:main-flow
 ```
 
-覆盖：`e2e/main-flow/mock-practice.spec.ts` — 选场景 → 开练 → mock 录音上传 → 确认 → AI 回复 → 结束 → 报告 → 改进详情 → 历史。
+覆盖：选场景 → 开练 → 录音上传 → 确认 → AI 回复 → 结束 → 报告 → 改进详情 → 历史。
 
 ### 运行全部 E2E
 
@@ -282,7 +494,7 @@ python -m src.scripts.seed_scenarios
 
 ### 报告一直 pending
 
-结束练习后报告应先进入 `pending`，随后在 mock 模式下很快变为 `completed`。
+结束练习后报告应先进入 `pending`，随后在默认配置下很快变为 `completed`。
 
 | 原因 | 处理 |
 |---|---|
