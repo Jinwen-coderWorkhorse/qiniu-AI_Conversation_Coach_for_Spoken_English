@@ -24,6 +24,10 @@ class Settings:
     max_daily_sessions_per_user: int = int(
         os.getenv("MAX_DAILY_SESSIONS_PER_USER", "20")
     )
+    ai_provider: str = os.getenv("AI_PROVIDER", "mock")
+    asr_provider: str = os.getenv("ASR_PROVIDER", "")
+    tts_provider: str = os.getenv("TTS_PROVIDER", "")
+    provider_max_retries: int = int(os.getenv("PROVIDER_MAX_RETRIES", "2"))
 
 
 @lru_cache
