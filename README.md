@@ -73,13 +73,12 @@ curl -X POST http://127.0.0.1:8000/api/v1/auth/anonymous `
 ```powershell
 cd apps/web
 npm install
-$env:NEXT_PUBLIC_API_BASE_URL = "http://127.0.0.1:8000/api/v1"
 npm run dev
 ```
 
 访问 <http://127.0.0.1:3000>，首页应展示 3 个场景（英文面试、餐厅点餐、项目会议）。
 
-> Web 未配置 Next.js 反向代理，`NEXT_PUBLIC_API_BASE_URL` 必须指向 API 完整地址，不能使用默认的 `/api/v1`。
+> 本地开发默认通过 Next.js 将 `/api/v1` 代理到 `http://127.0.0.1:8000`。若 API 端口不同，可设置 `API_PROXY_ORIGIN=http://127.0.0.1:<port>` 后重启 `npm run dev`。
 
 ---
 
@@ -262,10 +261,12 @@ npm run test:e2e:main-flow
 | 8000 | uvicorn | 换端口启动 API，并更新 `NEXT_PUBLIC_API_BASE_URL` |
 | 3306 / 5672 / 9000 | Docker 依赖 | 修改 `infra/docker-compose.yml` 左侧宿主机映射，并同步 `.env` 中连接串 |
 
-### 环境变量缺失或 Web 请求 404
+### 首页显示「无法连接服务」或 Web 请求 404
 
-- 确认 Web 终端已设置 `NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8000/api/v1`
-- 修改后需重启 `npm run dev`（Next.js 在启动时读取 `NEXT_PUBLIC_*`）
+- 确认 API 已启动且 `http://127.0.0.1:8000/health` 返回 `ok`
+- 默认无需设置 `NEXT_PUBLIC_API_BASE_URL`；Web 会将 `/api/v1` 代理到本地 API
+- 若 API 使用非 8000 端口，设置 `API_PROXY_ORIGIN=http://127.0.0.1:<port>` 并重启 `npm run dev`
+- 若改为直连 API（设置 `NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8000/api/v1`），请用与 API 一致的 host（建议统一 `127.0.0.1`），避免 `localhost` 与 `127.0.0.1` 混用触发跨域
 - API 侧确认 `JWT_SECRET` 在同一环境保持一致，避免 token 校验失败
 
 ### 数据库未初始化 / 场景列表为空
