@@ -33,3 +33,22 @@ class ReportRepository:
         )
         self.db.add(report)
         return report
+
+    def list_completed_scores_for_user(self, user_id: str) -> list[tuple[object, int]]:
+        from src.domain.models.practice_session import PracticeSession
+
+        stmt = (
+            select(PracticeSession.created_at, AssessmentReport.overall_score)
+            .join(PracticeSession, PracticeSession.id == AssessmentReport.session_id)
+            .where(
+                PracticeSession.user_id == user_id,
+                PracticeSession.status == "completed",
+                AssessmentReport.status == "completed",
+                AssessmentReport.overall_score.is_not(None),
+                PracticeSession.deleted_at.is_(None),
+                AssessmentReport.deleted_at.is_(None),
+            )
+            .order_by(PracticeSession.created_at.asc())
+        )
+        rows = self.db.execute(stmt).all()
+        return [(row[0], int(row[1])) for row in rows]

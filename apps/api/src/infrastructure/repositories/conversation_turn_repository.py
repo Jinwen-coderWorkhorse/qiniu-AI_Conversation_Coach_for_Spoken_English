@@ -183,6 +183,35 @@ class ConversationTurnRepository:
         )
         return int(self.db.scalar(stmt) or 0)
 
+    def aggregate_confirmed_user_stats(self, user_id: str) -> tuple[int, int]:
+        turns = self.list_confirmed_user_turns_for_user(user_id)
+        duration_ms = 0
+        word_count = 0
+        for turn in turns:
+            if turn.audio_duration_ms:
+                duration_ms += turn.audio_duration_ms
+            metrics = turn.asr_metrics_json or {}
+            if "word_count" in metrics:
+                word_count += int(metrics["word_count"])
+            else:
+                word_count += len(turn.content_text.split())
+        return duration_ms, word_count
+
+    def list_confirmed_user_turns_for_user(self, user_id: str) -> list[ConversationTurn]:
+        stmt = (
+            select(ConversationTurn)
+            .join(PracticeSession, PracticeSession.id == ConversationTurn.session_id)
+            .where(
+                PracticeSession.user_id == user_id,
+                PracticeSession.status == "completed",
+                ConversationTurn.speaker == "user",
+                ConversationTurn.status == "confirmed",
+                ConversationTurn.deleted_at.is_(None),
+                PracticeSession.deleted_at.is_(None),
+            )
+        )
+        return list(self.db.scalars(stmt).all())
+
     def count_user_turns_created_since(self, user_id: str, since: datetime) -> int:
         stmt = (
             select(func.count())
