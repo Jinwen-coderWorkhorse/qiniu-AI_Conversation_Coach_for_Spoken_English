@@ -29,6 +29,7 @@ export function usePracticeRecording() {
   const recorderRef = useRef<PracticeRecorder | null>(null);
   const latestRecordingRef = useRef<RecordingResult | null>(null);
   const isPressingRef = useRef(false);
+  const pendingStopRef = useRef<"released" | "cancelled" | null>(null);
 
   const handleRecorderFailure = useCallback(
     (error: unknown) => {
@@ -92,46 +93,24 @@ export function usePracticeRecording() {
     !practice.micPermissionError &&
     !practice.pendingReviewTurn;
 
-  const handlePressStart = useCallback(async () => {
-    if (!canRecord || isPressingRef.current || recorderRef.current?.recording) {
-      return;
-    }
+  const finishRecording = useCallback(
+    async (reason: "released" | "cancelled") => {
+      const recorder = recorderRef.current;
 
-    isPressingRef.current = true;
-    dispatch(clearMicPermissionError());
-    dispatch(clearCapturedRecording());
-    latestRecordingRef.current = null;
-    dispatch(setClientTurnId(createClientTurnId()));
+      if (!recorder?.recording) {
+        return;
+      }
 
-    try {
-      const recorder = ensureRecorder();
-      await recorder.start();
-      dispatch(setRecordingState("recording"));
-      dispatch(setRecordingDurationMs(0));
-      dispatch(setWaveformLevel(0));
-    } catch (error) {
-      isPressingRef.current = false;
-      handleRecorderFailure(error);
-    }
-  }, [canRecord, dispatch, ensureRecorder, handleRecorderFailure]);
+      try {
+        const result = await recorder.stop(reason);
 
-  const handlePressEnd = useCallback(async () => {
-    if (!isPressingRef.current) {
-      return;
-    }
+        if (reason === "cancelled" || !result) {
+          dispatch(setRecordingState("ready"));
+          dispatch(setRecordingDurationMs(0));
+          dispatch(setWaveformLevel(0));
+          return;
+        }
 
-    isPressingRef.current = false;
-
-    const recorder = recorderRef.current;
-
-    if (!recorder?.recording) {
-      return;
-    }
-
-    try {
-      const result = await recorder.stop("released");
-
-      if (result) {
         latestRecordingRef.current = result;
         dispatch(
           setCapturedRecording({
@@ -141,35 +120,81 @@ export function usePracticeRecording() {
             stopReason: "released",
           }),
         );
-      } else {
-        dispatch(setRecordingState("ready"));
+        dispatch(setRecordingDurationMs(0));
+        dispatch(setWaveformLevel(0));
+      } catch (error) {
+        handleRecorderFailure(error);
+      }
+    },
+    [dispatch, handleRecorderFailure],
+  );
+
+  const handlePressStart = useCallback(async () => {
+    if (!canRecord || isPressingRef.current || recorderRef.current?.recording) {
+      return;
+    }
+
+    isPressingRef.current = true;
+    pendingStopRef.current = null;
+    dispatch(clearMicPermissionError());
+    dispatch(clearCapturedRecording());
+    latestRecordingRef.current = null;
+    dispatch(setClientTurnId(createClientTurnId()));
+
+    try {
+      const recorder = ensureRecorder();
+      await recorder.start();
+
+      if (pendingStopRef.current) {
+        const stopReason = pendingStopRef.current;
+        pendingStopRef.current = null;
+        isPressingRef.current = false;
+        await finishRecording(stopReason);
+        return;
       }
 
+      dispatch(setRecordingState("recording"));
       dispatch(setRecordingDurationMs(0));
       dispatch(setWaveformLevel(0));
     } catch (error) {
+      isPressingRef.current = false;
+      pendingStopRef.current = null;
       handleRecorderFailure(error);
     }
-  }, [dispatch, handleRecorderFailure]);
+  }, [canRecord, dispatch, ensureRecorder, finishRecording, handleRecorderFailure]);
+
+  const handlePressEnd = useCallback(async () => {
+    if (!isPressingRef.current) {
+      return;
+    }
+
+    const recorder = recorderRef.current;
+
+    if (!recorder?.recording) {
+      pendingStopRef.current = "released";
+      return;
+    }
+
+    isPressingRef.current = false;
+    await finishRecording("released");
+  }, [finishRecording]);
 
   const handlePressCancel = useCallback(async () => {
     if (!isPressingRef.current) {
       return;
     }
 
-    isPressingRef.current = false;
-
     const recorder = recorderRef.current;
 
     if (!recorder?.recording) {
+      pendingStopRef.current = "cancelled";
       return;
     }
 
-    await recorder.stop("cancelled");
-    dispatch(setRecordingState("ready"));
-    dispatch(setRecordingDurationMs(0));
-    dispatch(setWaveformLevel(0));
-  }, [dispatch]);
+    isPressingRef.current = false;
+    pendingStopRef.current = null;
+    await finishRecording("cancelled");
+  }, [finishRecording]);
 
   const retryMicrophone = useCallback(() => {
     dispatch(clearMicPermissionError());

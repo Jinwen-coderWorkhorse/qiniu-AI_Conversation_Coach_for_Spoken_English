@@ -80,6 +80,11 @@ export function PracticeSessionView({ sessionId }: PracticeSessionViewProps) {
   }, [dispatch, router, sessionId]);
 
   const talkButtonDisabled = useMemo(() => {
+    if (isRecording) {
+      // Keep the button interactive while recording so pointerup is delivered on release.
+      return false;
+    }
+
     return (
       !recording.canRecord ||
       isLoading ||
@@ -90,6 +95,7 @@ export function PracticeSessionView({ sessionId }: PracticeSessionViewProps) {
     );
   }, [
     isLoading,
+    isRecording,
     isSessionError,
     practice.isDiscarding,
     practice.recordingState,
