@@ -26,6 +26,13 @@ export type PracticeRecordingState =
   | "reporting"
   | "error";
 
+export type CapturedRecordingSummary = {
+  mimeType: string;
+  durationMs: number;
+  sizeBytes: number;
+  stopReason: "released" | "timeout";
+};
+
 export type PracticeState = {
   sessionId: string | null;
   scenario: SessionScenario | null;
@@ -34,6 +41,10 @@ export type PracticeState = {
   turns: ConversationTurn[];
   recordingState: PracticeRecordingState;
   error: string | null;
+  recordingDurationMs: number;
+  waveformLevel: number;
+  capturedRecording: CapturedRecordingSummary | null;
+  micPermissionError: string | null;
 };
 
 const initialState: PracticeState = {
@@ -44,6 +55,10 @@ const initialState: PracticeState = {
   turns: [],
   recordingState: "loadingOpening",
   error: null,
+  recordingDurationMs: 0,
+  waveformLevel: 0,
+  capturedRecording: null,
+  micPermissionError: null,
 };
 
 export const loadPracticeSession = createAsyncThunk<
@@ -90,6 +105,24 @@ const practiceSlice = createSlice({
       applySessionDetail(state, action.payload);
       state.recordingState = "ready";
       state.error = null;
+    },
+    setRecordingDurationMs: (state, action: PayloadAction<number>) => {
+      state.recordingDurationMs = action.payload;
+    },
+    setWaveformLevel: (state, action: PayloadAction<number>) => {
+      state.waveformLevel = action.payload;
+    },
+    setCapturedRecording: (state, action: PayloadAction<CapturedRecordingSummary>) => {
+      state.capturedRecording = action.payload;
+    },
+    clearCapturedRecording: (state) => {
+      state.capturedRecording = null;
+    },
+    setMicPermissionError: (state, action: PayloadAction<string>) => {
+      state.micPermissionError = action.payload;
+    },
+    clearMicPermissionError: (state) => {
+      state.micPermissionError = null;
     },
   },
   extraReducers: (builder) => {
@@ -143,7 +176,17 @@ function getSessionErrorMessage(error: unknown) {
   return "无法连接服务，请确认后端已启动。";
 }
 
-export const { resetPractice, setRecordingState, setPracticeError, hydratePracticeSession } =
-  practiceSlice.actions;
+export const {
+  resetPractice,
+  setRecordingState,
+  setPracticeError,
+  hydratePracticeSession,
+  setRecordingDurationMs,
+  setWaveformLevel,
+  setCapturedRecording,
+  clearCapturedRecording,
+  setMicPermissionError,
+  clearMicPermissionError,
+} = practiceSlice.actions;
 
 export const practiceReducer = practiceSlice.reducer;

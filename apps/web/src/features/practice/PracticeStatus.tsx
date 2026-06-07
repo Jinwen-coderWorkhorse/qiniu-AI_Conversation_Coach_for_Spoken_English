@@ -1,12 +1,17 @@
-import type { PracticeRecordingState } from "@/store/practiceSlice";
+import type { CapturedRecordingSummary, PracticeRecordingState } from "@/store/practiceSlice";
 
 type PracticeStatusProps = {
   recordingState: PracticeRecordingState;
   error?: string | null;
+  capturedRecording?: CapturedRecordingSummary | null;
 };
 
-export function PracticeStatus({ recordingState, error }: PracticeStatusProps) {
-  const label = getStatusLabel(recordingState);
+export function PracticeStatus({
+  recordingState,
+  error,
+  capturedRecording,
+}: PracticeStatusProps) {
+  const label = getStatusLabel(recordingState, capturedRecording);
 
   return (
     <section className="practice-status" aria-live="polite">
@@ -26,12 +31,15 @@ export function PracticeStatus({ recordingState, error }: PracticeStatusProps) {
   );
 }
 
-function getStatusLabel(state: PracticeRecordingState) {
+function getStatusLabel(
+  state: PracticeRecordingState,
+  capturedRecording?: CapturedRecordingSummary | null,
+) {
   switch (state) {
     case "loadingOpening":
       return "正在恢复练习...";
     case "ready":
-      return "可以开始说话";
+      return capturedRecording ? "录音已暂存，等待上传" : "可以开始说话";
     case "aiSpeaking":
       return "AI 正在发言";
     case "recording":

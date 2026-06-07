@@ -4,12 +4,16 @@ type PracticeHeaderProps = {
   scenario: SessionScenario;
   currentStepNo: number;
   sessionStatus: string;
+  endPracticeDisabled?: boolean;
+  isRecording?: boolean;
 };
 
 export function PracticeHeader({
   scenario,
   currentStepNo,
   sessionStatus,
+  endPracticeDisabled = false,
+  isRecording = false,
 }: PracticeHeaderProps) {
   return (
     <header className="practice-header">
@@ -22,6 +26,16 @@ export function PracticeHeader({
           {formatSessionStatus(sessionStatus)}
         </p>
       </div>
+
+      <button
+        className="practice-end-button"
+        type="button"
+        disabled={endPracticeDisabled}
+        aria-disabled={endPracticeDisabled}
+        title={isRecording ? "录音中暂不可结束练习" : "结束练习将在后续版本接入"}
+      >
+        结束练习
+      </button>
     </header>
   );
 }
