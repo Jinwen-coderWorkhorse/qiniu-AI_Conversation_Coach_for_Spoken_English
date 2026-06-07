@@ -484,15 +484,43 @@ h1 {
 }
 
 .practice-header {
-  display: grid;
-  gap: 8px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
   min-width: 0;
 }
 
 .practice-header-copy {
   display: grid;
   gap: 8px;
+  flex: 1 1 auto;
   min-width: 0;
+}
+
+.practice-end-button {
+  flex: 0 0 auto;
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid rgba(200, 216, 212, 0.92);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--color-muted);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+
+.practice-end-button:hover:not(:disabled) {
+  border-color: rgba(185, 79, 58, 0.28);
+  color: var(--color-accent);
+}
+
+.practice-end-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 .practice-header-title {
@@ -685,12 +713,92 @@ h1 {
   font-size: 16px;
   font-weight: 800;
   overflow-wrap: anywhere;
-  cursor: not-allowed;
-  opacity: 0.72;
+  touch-action: none;
+  user-select: none;
+  cursor: pointer;
+}
+
+.push-to-talk-button[data-recording="true"] {
+  background: var(--color-accent);
 }
 
 .push-to-talk-button:disabled {
   opacity: 0.72;
+  cursor: not-allowed;
+}
+
+.practice-recording-panel {
+  display: grid;
+  gap: 10px;
+  justify-items: center;
+  width: 100%;
+  min-width: 0;
+}
+
+.practice-recording-timer {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 14px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+  text-align: center;
+}
+
+.waveform-meter {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 4px;
+  width: min(100%, 280px);
+  min-height: 52px;
+}
+
+.waveform-meter-bar {
+  display: block;
+  width: 8px;
+  border-radius: 999px;
+  background: rgba(200, 216, 212, 0.92);
+  transition:
+    background-color 120ms ease,
+    transform 120ms ease;
+}
+
+.waveform-meter-bar[data-active="true"] {
+  background: var(--color-primary);
+  transform: scaleY(1.04);
+}
+
+.practice-mic-alert {
+  display: grid;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 10px;
+  border: 1px solid rgba(185, 79, 58, 0.2);
+  background: rgba(185, 79, 58, 0.08);
+}
+
+.practice-mic-alert-message {
+  margin: 0;
+  color: var(--color-accent);
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+
+.practice-capture-summary {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  padding: 14px 16px;
+  border-radius: 10px;
+  border: 1px solid rgba(8, 117, 104, 0.18);
+  background: rgba(8, 117, 104, 0.06);
+}
+
+.practice-capture-summary-text {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 14px;
+  overflow-wrap: anywhere;
 }
 
 .practice-error-card {
@@ -1485,5 +1593,20 @@ h1 {
   .push-to-talk-button {
     width: 100%;
     font-size: 15px;
+  }
+
+  .practice-end-button {
+    min-height: 32px;
+    padding: 0 10px;
+    font-size: 12px;
+  }
+
+  .waveform-meter {
+    width: 100%;
+    gap: 3px;
+  }
+
+  .waveform-meter-bar {
+    width: 6px;
   }
 }

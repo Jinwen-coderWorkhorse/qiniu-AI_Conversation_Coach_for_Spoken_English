@@ -7,6 +7,8 @@ import { loadPracticeSession, resetPractice } from "@/store/practiceSlice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 
 import { AiCurrentUtterance } from "./AiCurrentUtterance";
+import { CapturedRecordingSummary } from "./CapturedRecordingSummary";
+import { MicPermissionAlert } from "./MicPermissionAlert";
 import { PracticeHeader } from "./PracticeHeader";
 import { PracticeStatus } from "./PracticeStatus";
 import { PushToTalkButton } from "./PushToTalkButton";
@@ -16,6 +18,7 @@ import {
   selectPracticeSession,
   selectRecentTurns,
 } from "./practiceSelectors";
+import { usePracticeRecording } from "./usePracticeRecording";
 
 type PracticeSessionViewProps = {
   sessionId: string;
@@ -26,6 +29,7 @@ export function PracticeSessionView({ sessionId }: PracticeSessionViewProps) {
   const practice = useAppSelector(selectPracticeSession);
   const currentAiTurn = selectCurrentAiTurn(practice.turns);
   const recentTurns = selectRecentTurns(practice.turns, currentAiTurn?.id);
+  const recording = usePracticeRecording();
 
   useEffect(() => {
     dispatch(resetPractice());
@@ -37,8 +41,11 @@ export function PracticeSessionView({ sessionId }: PracticeSessionViewProps) {
   }, [dispatch, sessionId]);
 
   const isLoading = practice.recordingState === "loadingOpening";
-  const isError = practice.recordingState === "error";
+  const isSessionError = practice.recordingState === "error";
   const isReady = Boolean(practice.scenario && practice.currentStepNo !== null);
+  const isRecording = practice.recordingState === "recording";
+  const talkButtonDisabled =
+    !recording.canRecord || isLoading || isSessionError || practice.sessionStatus !== "in_progress";
 
   return (
     <section className="practice-page" aria-labelledby="practice-page-title">
@@ -46,7 +53,7 @@ export function PracticeSessionView({ sessionId }: PracticeSessionViewProps) {
         返回首页
       </Link>
 
-      {isError ? (
+      {isSessionError ? (
         <div className="practice-error-card" role="alert">
           <h1 className="practice-error-title" id="practice-page-title">
             练习恢复失败
@@ -67,7 +74,7 @@ export function PracticeSessionView({ sessionId }: PracticeSessionViewProps) {
         </div>
       ) : null}
 
-      {!isError ? (
+      {!isSessionError ? (
         <div className="practice-page-layout">
           <div className="practice-page-body">
             {isReady && practice.scenario && practice.currentStepNo !== null ? (
@@ -75,6 +82,8 @@ export function PracticeSessionView({ sessionId }: PracticeSessionViewProps) {
                 scenario={practice.scenario}
                 currentStepNo={practice.currentStepNo}
                 sessionStatus={practice.sessionStatus ?? "in_progress"}
+                endPracticeDisabled={isRecording || practice.recordingState !== "ready"}
+                isRecording={isRecording}
               />
             ) : (
               <div className="practice-header-loading" aria-busy="true">
@@ -83,12 +92,35 @@ export function PracticeSessionView({ sessionId }: PracticeSessionViewProps) {
               </div>
             )}
 
+            {recording.micPermissionError ? (
+              <MicPermissionAlert
+                message={recording.micPermissionError}
+                onRetry={recording.retryMicrophone}
+              />
+            ) : null}
+
             <AiCurrentUtterance turn={currentAiTurn} isLoading={isLoading} />
             <RecentTranscript turns={recentTurns} />
-            <PracticeStatus recordingState={practice.recordingState} error={practice.error} />
+            <PracticeStatus
+              recordingState={practice.recordingState}
+              error={practice.error}
+              capturedRecording={practice.capturedRecording}
+            />
+
+            {practice.capturedRecording ? (
+              <CapturedRecordingSummary recording={practice.capturedRecording} />
+            ) : null}
           </div>
 
-          <PushToTalkButton disabled />
+          <PushToTalkButton
+            disabled={talkButtonDisabled}
+            durationMs={recording.recordingDurationMs}
+            isRecording={recording.isRecording}
+            waveformLevel={recording.waveformLevel}
+            onPressCancel={() => void recording.handlePressCancel()}
+            onPressEnd={() => void recording.handlePressEnd()}
+            onPressStart={() => void recording.handlePressStart()}
+          />
         </div>
       ) : null}
     </section>
