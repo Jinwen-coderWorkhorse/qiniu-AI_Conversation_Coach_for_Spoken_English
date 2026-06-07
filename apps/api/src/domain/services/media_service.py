@@ -98,3 +98,30 @@ class MediaService:
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes(content)
         return object_key
+
+    def save_ai_audio(
+        self,
+        *,
+        user_id: str,
+        session_id: str,
+        turn_id: str,
+        content: bytes,
+        mime_type: str,
+        duration_ms: int | None = None,
+    ) -> str:
+        object_key = build_audio_object_key(
+            user_id=user_id,
+            session_id=session_id,
+            turn_id=turn_id,
+            speaker="ai",
+            mime_type=mime_type,
+        )
+        target = Path(self.settings.media_local_root) / object_key
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(content)
+        return object_key
+
+    def build_audio_url(self, object_key: str | None) -> str | None:
+        if not object_key:
+            return None
+        return None
