@@ -455,15 +455,265 @@ h1 {
   border-radius: 10px;
 }
 
-.practice-session-shell h1 {
-  margin: 0;
-  font-size: 36px;
+.practice-page {
+  display: grid;
+  gap: 16px;
+  width: min(100%, 640px);
+  margin: 0 auto;
 }
 
-.practice-session-shell code {
-  font-family: Consolas, "Courier New", monospace;
+.practice-back-link {
+  min-width: 0;
+}
+
+.practice-page-layout {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+
+.practice-page-body {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+  padding: 20px;
+  border: 1px solid rgba(200, 216, 212, 0.92);
+  border-radius: 12px;
+  background: var(--color-surface);
+  box-shadow: var(--shadow-soft);
+}
+
+.practice-header {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.practice-header-copy {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.practice-header-title {
+  margin: 0;
+  font-size: 28px;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+
+.practice-header-meta {
+  margin: 0;
+  color: var(--color-muted);
   font-size: 14px;
-  word-break: break-all;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.practice-header-loading {
+  display: grid;
+  gap: 10px;
+}
+
+.practice-section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+}
+
+.practice-section-heading h2 {
+  margin: 0;
+  font-size: 15px;
+  overflow-wrap: anywhere;
+}
+
+.practice-section-heading span {
+  flex: 0 0 auto;
+  color: var(--color-muted);
+  font-size: 12px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.practice-ai-utterance,
+.practice-recent-transcript,
+.practice-status {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  padding: 14px 16px;
+  border-radius: 10px;
+  background: rgba(237, 244, 242, 0.42);
+}
+
+.practice-ai-utterance-body {
+  display: grid;
+  gap: 10px;
+}
+
+.practice-ai-utterance-text {
+  margin: 0;
+  font-size: 18px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.practice-ai-utterance-empty,
+.practice-recent-empty,
+.practice-talk-hint {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+
+.practice-recent-list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.practice-recent-item {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding: 12px 14px;
+  border-radius: 8px;
+  background: var(--color-surface);
+}
+
+.practice-recent-item[data-speaker="ai"] {
+  border: 1px solid rgba(8, 117, 104, 0.16);
+}
+
+.practice-recent-item[data-speaker="user"] {
+  border: 1px solid rgba(185, 79, 58, 0.16);
+}
+
+.practice-recent-item-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+}
+
+.practice-recent-speaker {
+  font-size: 13px;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
+.practice-recent-index {
+  color: var(--color-muted);
+  font-size: 12px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.practice-recent-text {
+  margin: 0;
+  font-size: 15px;
+  overflow-wrap: anywhere;
+}
+
+.practice-status-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+}
+
+.practice-status-label {
+  color: var(--color-muted);
+  font-size: 13px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.practice-status-value {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(8, 117, 104, 0.12);
+  color: var(--color-primary);
+  font-size: 13px;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
+.practice-status-value[data-state="error"] {
+  background: rgba(185, 79, 58, 0.12);
+  color: var(--color-accent);
+}
+
+.practice-status-value[data-state="loadingOpening"],
+.practice-status-value[data-state="aiSpeaking"],
+.practice-status-value[data-state="aiThinking"] {
+  background: rgba(183, 132, 30, 0.14);
+  color: #7a5710;
+}
+
+.practice-status-error {
+  margin: 0;
+  color: var(--color-accent);
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+
+.practice-talk-footer {
+  display: grid;
+  gap: 8px;
+  justify-items: center;
+  min-width: 0;
+  padding: 0 4px 8px;
+}
+
+.push-to-talk-button {
+  width: min(100%, 320px);
+  min-height: 56px;
+  padding: 0 20px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--color-primary);
+  color: #ffffff;
+  font: inherit;
+  font-size: 16px;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+  cursor: not-allowed;
+  opacity: 0.72;
+}
+
+.push-to-talk-button:disabled {
+  opacity: 0.72;
+}
+
+.practice-error-card {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+  padding: 24px 20px;
+  border: 1px solid rgba(200, 216, 212, 0.92);
+  border-radius: 12px;
+  background: var(--color-surface);
+  box-shadow: var(--shadow-soft);
+}
+
+.practice-error-title {
+  margin: 0;
+  font-size: 28px;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+
+.practice-error-actions {
+  display: grid;
+  gap: 12px;
 }
 
 .report-shell {
@@ -1217,5 +1467,23 @@ h1 {
 
   .stats-metric-value {
     font-size: 16px;
+  }
+
+  .practice-page-body {
+    padding: 16px;
+  }
+
+  .practice-header-title,
+  .practice-error-title {
+    font-size: 24px;
+  }
+
+  .practice-ai-utterance-text {
+    font-size: 16px;
+  }
+
+  .push-to-talk-button {
+    width: 100%;
+    font-size: 15px;
   }
 }
