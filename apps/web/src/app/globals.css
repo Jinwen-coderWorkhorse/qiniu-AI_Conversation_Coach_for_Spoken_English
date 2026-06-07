@@ -266,6 +266,159 @@ h1 {
   width: 68%;
 }
 
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  color: var(--color-primary);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.back-link:hover {
+  color: #075f55;
+}
+
+.practice-start-shell,
+.practice-session-shell {
+  display: grid;
+  gap: 20px;
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+.practice-start-card,
+.practice-start-state {
+  display: grid;
+  gap: 24px;
+  padding: 28px;
+  border: 1px solid rgba(200, 216, 212, 0.92);
+  border-radius: 12px;
+  background: var(--color-surface);
+  box-shadow: var(--shadow-soft);
+}
+
+.practice-start-header {
+  display: grid;
+  gap: 12px;
+}
+
+.practice-start-summary,
+.practice-session-summary,
+.practice-session-note {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 16px;
+}
+
+.practice-start-meta {
+  margin: 0;
+  color: var(--color-primary);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.practice-start-steps {
+  display: grid;
+  gap: 12px;
+}
+
+.task-step-list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.task-step-item {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+  padding: 12px 14px;
+  border-radius: 8px;
+  background: rgba(8, 117, 104, 0.06);
+  font-size: 15px;
+}
+
+.task-step-index {
+  display: inline-grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--color-primary);
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.practice-start-alert {
+  display: grid;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 8px;
+  background: rgba(185, 79, 58, 0.08);
+  border: 1px solid rgba(185, 79, 58, 0.2);
+}
+
+.practice-start-alert p {
+  margin: 0;
+  color: var(--color-accent);
+  font-size: 15px;
+}
+
+.primary-action {
+  min-height: 52px;
+  padding: 0 20px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--color-primary);
+  color: #ffffff;
+  font: inherit;
+  font-size: 16px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.primary-action:hover:not(:disabled) {
+  background: #075f55;
+}
+
+.primary-action:disabled {
+  opacity: 0.72;
+  cursor: wait;
+}
+
+.state-action-inline {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+}
+
+.practice-start-card-loading {
+  pointer-events: none;
+}
+
+.loading-line-button {
+  width: 100%;
+  height: 52px;
+  border-radius: 10px;
+}
+
+.practice-session-shell h1 {
+  margin: 0;
+  font-size: 36px;
+}
+
+.practice-session-shell code {
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 14px;
+  word-break: break-all;
+}
+
 @media (max-width: 760px) {
   .topbar {
     padding: 0 16px;
@@ -290,5 +443,10 @@ h1 {
 
   .home-summary {
     font-size: 16px;
+  }
+
+  .practice-start-card,
+  .practice-start-state {
+    padding: 20px;
   }
 }

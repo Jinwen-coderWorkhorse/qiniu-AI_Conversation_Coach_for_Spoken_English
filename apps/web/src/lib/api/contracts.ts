@@ -43,6 +43,40 @@ export type Scenario = {
   steps: string[];
 };
 
+export type ScenarioStep = {
+  step_no: number;
+  title: string;
+};
+
+export type ScenarioDetail = {
+  slug: string;
+  name: string;
+  summary: string;
+  estimated_minutes: number;
+  steps: ScenarioStep[];
+};
+
 export type ScenariosResponse = {
   items: Scenario[];
+};
+
+export type CreatePracticeSessionRequest = {
+  scenario_slug: string;
+};
+
+export type CreatePracticeSessionResponse = {
+  id: string;
+  status: string;
+  scenario: {
+    slug: string;
+    name: string;
+  };
+  current_step_no: number;
+  opening_message: {
+    turn_id: string;
+    text: string;
+    audio_url: string | null;
+    audio_mime_type: string | null;
+  };
+  events_url: string;
 };
