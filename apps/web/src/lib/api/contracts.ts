@@ -138,3 +138,68 @@ export type PracticeSessionReportResponse =
   | ReportPendingResponse
   | ReportCompletedResponse
   | ReportFailedResponse;
+
+export type TurnSpeaker = "ai" | "user";
+
+export type ConversationTurn = {
+  id: string;
+  turn_index: number;
+  speaker: TurnSpeaker;
+  transcript: string;
+  asr_confidence?: number | null;
+  audio_url?: string | null;
+};
+
+export type SessionScenario = {
+  slug: string;
+  name: string;
+};
+
+export type PracticeSessionDetail = {
+  id: string;
+  status: string;
+  scenario: SessionScenario;
+  current_step_no: number;
+  started_at: string;
+  ended_at?: string | null;
+  turns: ConversationTurn[];
+};
+
+export type HistoryItem = {
+  id: string;
+  scenario_name: string;
+  created_at: string;
+  duration_sec: number;
+  overall_score?: number | null;
+  level_description?: string | null;
+};
+
+export type Pagination = {
+  page: number;
+  page_size: number;
+  total: number;
+};
+
+export type HistoryListResponse = {
+  items: HistoryItem[];
+  pagination: Pagination;
+};
+
+export type ScoreTrendPoint = {
+  date: string;
+  score: number;
+};
+
+export type StatsResponse = {
+  practice_count: number;
+  spoken_minutes: number;
+  user_word_count: number;
+  average_score: number | null;
+  score_trend: ScoreTrendPoint[];
+};
+
+export type ListPracticeSessionsQuery = {
+  page?: number;
+  page_size?: number;
+  scenario_slug?: string;
+};
