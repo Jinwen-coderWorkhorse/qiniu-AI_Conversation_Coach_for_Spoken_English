@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 
 import { loadPracticeSession, resetPractice } from "@/store/practiceSlice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
@@ -13,23 +13,40 @@ import { PracticeHeader } from "./PracticeHeader";
 import { PracticeStatus } from "./PracticeStatus";
 import { PushToTalkButton } from "./PushToTalkButton";
 import { RecentTranscript } from "./RecentTranscript";
+import { TranscriptReview } from "./TranscriptReview";
+import { TurnActionError } from "./TurnActionError";
 import {
   selectCurrentAiTurn,
   selectPracticeSession,
   selectRecentTurns,
 } from "./practiceSelectors";
 import { usePracticeRecording } from "./usePracticeRecording";
+import { usePracticeUserTurn } from "./usePracticeUserTurn";
 
 type PracticeSessionViewProps = {
   sessionId: string;
 };
+
+const BLOCKED_TALK_STATES = new Set([
+  "uploading",
+  "transcribing",
+  "transcriptReview",
+  "aiThinking",
+  "aiSpeaking",
+  "ending",
+  "reporting",
+]);
 
 export function PracticeSessionView({ sessionId }: PracticeSessionViewProps) {
   const dispatch = useAppDispatch();
   const practice = useAppSelector(selectPracticeSession);
   const currentAiTurn = selectCurrentAiTurn(practice.turns);
   const recentTurns = selectRecentTurns(practice.turns, currentAiTurn?.id);
+
   const recording = usePracticeRecording();
+  const userTurn = usePracticeUserTurn({
+    getLatestRecording: recording.getLatestRecording,
+  });
 
   useEffect(() => {
     dispatch(resetPractice());
@@ -44,8 +61,28 @@ export function PracticeSessionView({ sessionId }: PracticeSessionViewProps) {
   const isSessionError = practice.recordingState === "error";
   const isReady = Boolean(practice.scenario && practice.currentStepNo !== null);
   const isRecording = practice.recordingState === "recording";
-  const talkButtonDisabled =
-    !recording.canRecord || isLoading || isSessionError || practice.sessionStatus !== "in_progress";
+  const showCapturedSummary =
+    practice.capturedRecording !== null && practice.recordingState === "uploading";
+  const showTranscriptReview =
+    practice.recordingState === "transcriptReview" && practice.pendingReviewTurn !== null;
+
+  const talkButtonDisabled = useMemo(() => {
+    return (
+      !recording.canRecord ||
+      isLoading ||
+      isSessionError ||
+      practice.sessionStatus !== "in_progress" ||
+      BLOCKED_TALK_STATES.has(practice.recordingState) ||
+      practice.isDiscarding
+    );
+  }, [
+    isLoading,
+    isSessionError,
+    practice.isDiscarding,
+    practice.recordingState,
+    practice.sessionStatus,
+    recording.canRecord,
+  ]);
 
   return (
     <section className="practice-page" aria-labelledby="practice-page-title">
@@ -107,7 +144,26 @@ export function PracticeSessionView({ sessionId }: PracticeSessionViewProps) {
               capturedRecording={practice.capturedRecording}
             />
 
-            {practice.capturedRecording ? (
+            {practice.turnActionError ? (
+              <TurnActionError
+                message={practice.turnActionError}
+                onRetryUpload={
+                  practice.capturedRecording && practice.recordingState === "ready"
+                    ? userTurn.retryUpload
+                    : undefined
+                }
+              />
+            ) : null}
+
+            {showTranscriptReview && practice.pendingReviewTurn ? (
+              <TranscriptReview
+                turn={practice.pendingReviewTurn}
+                isDiscarding={practice.isDiscarding}
+                onRetry={userTurn.handleDiscard}
+              />
+            ) : null}
+
+            {showCapturedSummary && practice.capturedRecording ? (
               <CapturedRecordingSummary recording={practice.capturedRecording} />
             ) : null}
           </div>
@@ -116,6 +172,7 @@ export function PracticeSessionView({ sessionId }: PracticeSessionViewProps) {
             disabled={talkButtonDisabled}
             durationMs={recording.recordingDurationMs}
             isRecording={recording.isRecording}
+            recordingState={practice.recordingState}
             waveformLevel={recording.waveformLevel}
             onPressCancel={() => void recording.handlePressCancel()}
             onPressEnd={() => void recording.handlePressEnd()}

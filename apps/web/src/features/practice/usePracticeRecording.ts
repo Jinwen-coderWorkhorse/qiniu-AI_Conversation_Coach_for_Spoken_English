@@ -8,10 +8,12 @@ import {
   type RecordingResult,
 } from "@/lib/audio/recorder";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { createClientTurnId } from "@/lib/audio/uploadMimeType";
 import {
   clearCapturedRecording,
   clearMicPermissionError,
   setCapturedRecording,
+  setClientTurnId,
   setMicPermissionError,
   setPracticeError,
   setRecordingDurationMs,
@@ -70,7 +72,6 @@ export function usePracticeRecording() {
             stopReason: "timeout",
           }),
         );
-        dispatch(setRecordingState("ready"));
         isPressingRef.current = false;
       },
     });
@@ -88,7 +89,8 @@ export function usePracticeRecording() {
   const canRecord =
     practice.recordingState === "ready" &&
     practice.sessionStatus === "in_progress" &&
-    !practice.micPermissionError;
+    !practice.micPermissionError &&
+    !practice.pendingReviewTurn;
 
   const handlePressStart = useCallback(async () => {
     if (!canRecord || isPressingRef.current || recorderRef.current?.recording) {
@@ -99,6 +101,7 @@ export function usePracticeRecording() {
     dispatch(clearMicPermissionError());
     dispatch(clearCapturedRecording());
     latestRecordingRef.current = null;
+    dispatch(setClientTurnId(createClientTurnId()));
 
     try {
       const recorder = ensureRecorder();
@@ -138,9 +141,10 @@ export function usePracticeRecording() {
             stopReason: "released",
           }),
         );
+      } else {
+        dispatch(setRecordingState("ready"));
       }
 
-      dispatch(setRecordingState("ready"));
       dispatch(setRecordingDurationMs(0));
       dispatch(setWaveformLevel(0));
     } catch (error) {

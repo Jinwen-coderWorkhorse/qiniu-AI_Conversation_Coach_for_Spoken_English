@@ -203,3 +203,36 @@ export type ListPracticeSessionsQuery = {
   page_size?: number;
   scenario_slug?: string;
 };
+
+export type AsrMetrics = {
+  duration_ms?: number;
+  word_count?: number;
+  speech_rate_wpm?: number;
+  pause_count?: number;
+};
+
+export type UserTurnAsr = {
+  id: string;
+  turn_index: number;
+  speaker: "user";
+  transcript: string;
+  asr_confidence: number;
+  needs_retry: boolean;
+  metrics?: AsrMetrics;
+};
+
+export type SubmitUserTurnResponse = {
+  turn: UserTurnAsr;
+  hint?: string | null;
+};
+
+export type SubmitUserTurnPayload = {
+  audio: Blob;
+  client_turn_id: string;
+  duration_ms: number;
+  mime_type: string;
+};
+
+export type DiscardTurnResponse = {
+  status: "discarded";
+};

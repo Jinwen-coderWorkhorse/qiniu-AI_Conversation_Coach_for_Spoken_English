@@ -5,8 +5,10 @@ import type {
   ConversationTurn,
   PracticeSessionDetail,
   SessionScenario,
+  SubmitUserTurnResponse,
 } from "@/lib/api/contracts";
-import { getPracticeSession } from "@/lib/api/endpoints";
+import { discardUserTurn, getPracticeSession, submitUserTurn } from "@/lib/api/endpoints";
+import { normalizeUploadMimeType } from "@/lib/audio/uploadMimeType";
 import {
   authenticateAnonymousIdentity,
   clearAnonymousAccessToken,
@@ -33,6 +35,23 @@ export type CapturedRecordingSummary = {
   stopReason: "released" | "timeout";
 };
 
+export type PendingReviewTurn = {
+  id: string;
+  turn_index: number;
+  transcript: string;
+  asr_confidence: number;
+  needs_retry: boolean;
+  hint?: string | null;
+};
+
+export type UploadUserTurnArgs = {
+  sessionId: string;
+  audio: Blob;
+  durationMs: number;
+  mimeType: string;
+  clientTurnId: string;
+};
+
 export type PracticeState = {
   sessionId: string | null;
   scenario: SessionScenario | null;
@@ -41,10 +60,14 @@ export type PracticeState = {
   turns: ConversationTurn[];
   recordingState: PracticeRecordingState;
   error: string | null;
+  turnActionError: string | null;
   recordingDurationMs: number;
   waveformLevel: number;
   capturedRecording: CapturedRecordingSummary | null;
   micPermissionError: string | null;
+  clientTurnId: string | null;
+  pendingReviewTurn: PendingReviewTurn | null;
+  isDiscarding: boolean;
 };
 
 const initialState: PracticeState = {
@@ -55,10 +78,14 @@ const initialState: PracticeState = {
   turns: [],
   recordingState: "loadingOpening",
   error: null,
+  turnActionError: null,
   recordingDurationMs: 0,
   waveformLevel: 0,
   capturedRecording: null,
   micPermissionError: null,
+  clientTurnId: null,
+  pendingReviewTurn: null,
+  isDiscarding: false,
 };
 
 export const loadPracticeSession = createAsyncThunk<
@@ -85,6 +112,83 @@ export const loadPracticeSession = createAsyncThunk<
   }
 });
 
+export const uploadUserTurn = createAsyncThunk<
+  SubmitUserTurnResponse,
+  UploadUserTurnArgs,
+  { rejectValue: string }
+>("practice/uploadUserTurn", async (payload, { rejectWithValue, dispatch }) => {
+  dispatch(setRecordingState("uploading"));
+
+  try {
+    const identity = await ensureAnonymousIdentity();
+    dispatch(setRecordingState("transcribing"));
+
+    const mimeType = normalizeUploadMimeType(payload.mimeType);
+
+    return await submitUserTurn(
+      payload.sessionId,
+      {
+        audio: payload.audio,
+        client_turn_id: payload.clientTurnId,
+        duration_ms: payload.durationMs,
+        mime_type: mimeType,
+      },
+      identity.access_token,
+    );
+  } catch (error) {
+    if (isUnauthorized(error)) {
+      clearAnonymousAccessToken();
+
+      try {
+        const identity = await authenticateAnonymousIdentity();
+        dispatch(setRecordingState("transcribing"));
+
+        const mimeType = normalizeUploadMimeType(payload.mimeType);
+
+        return await submitUserTurn(
+          payload.sessionId,
+          {
+            audio: payload.audio,
+            client_turn_id: payload.clientTurnId,
+            duration_ms: payload.durationMs,
+            mime_type: mimeType,
+          },
+          identity.access_token,
+        );
+      } catch (retryError) {
+        return rejectWithValue(getTurnActionErrorMessage(retryError));
+      }
+    }
+
+    return rejectWithValue(getTurnActionErrorMessage(error));
+  }
+});
+
+export const discardPendingTurn = createAsyncThunk<
+  void,
+  { sessionId: string; turnId: string },
+  { rejectValue: string }
+>("practice/discardPendingTurn", async ({ sessionId, turnId }, { rejectWithValue }) => {
+  try {
+    const identity = await ensureAnonymousIdentity();
+    await discardUserTurn(sessionId, turnId, identity.access_token);
+  } catch (error) {
+    if (isUnauthorized(error)) {
+      clearAnonymousAccessToken();
+
+      try {
+        const identity = await authenticateAnonymousIdentity();
+        await discardUserTurn(sessionId, turnId, identity.access_token);
+        return;
+      } catch (retryError) {
+        return rejectWithValue(getTurnActionErrorMessage(retryError));
+      }
+    }
+
+    return rejectWithValue(getTurnActionErrorMessage(error));
+  }
+});
+
 const practiceSlice = createSlice({
   name: "practice",
   initialState,
@@ -105,6 +209,7 @@ const practiceSlice = createSlice({
       applySessionDetail(state, action.payload);
       state.recordingState = "ready";
       state.error = null;
+      state.turnActionError = null;
     },
     setRecordingDurationMs: (state, action: PayloadAction<number>) => {
       state.recordingDurationMs = action.payload;
@@ -114,6 +219,11 @@ const practiceSlice = createSlice({
     },
     setCapturedRecording: (state, action: PayloadAction<CapturedRecordingSummary>) => {
       state.capturedRecording = action.payload;
+      state.turnActionError = null;
+
+      if (state.recordingState === "recording") {
+        state.recordingState = "uploading";
+      }
     },
     clearCapturedRecording: (state) => {
       state.capturedRecording = null;
@@ -123,6 +233,12 @@ const practiceSlice = createSlice({
     },
     clearMicPermissionError: (state) => {
       state.micPermissionError = null;
+    },
+    setClientTurnId: (state, action: PayloadAction<string>) => {
+      state.clientTurnId = action.payload;
+    },
+    clearTurnActionError: (state) => {
+      state.turnActionError = null;
     },
   },
   extraReducers: (builder) => {
@@ -136,10 +252,39 @@ const practiceSlice = createSlice({
         applySessionDetail(state, action.payload);
         state.recordingState = "ready";
         state.error = null;
+        state.turnActionError = null;
       })
       .addCase(loadPracticeSession.rejected, (state, action) => {
         state.recordingState = "error";
         state.error = action.payload ?? "练习详情加载失败，请稍后重试。";
+      })
+      .addCase(uploadUserTurn.pending, (state) => {
+        state.turnActionError = null;
+      })
+      .addCase(uploadUserTurn.fulfilled, (state, action) => {
+        state.recordingState = "transcriptReview";
+        state.pendingReviewTurn = mapPendingReviewTurn(action.payload);
+        state.capturedRecording = null;
+        state.turnActionError = null;
+      })
+      .addCase(uploadUserTurn.rejected, (state, action) => {
+        state.recordingState = "ready";
+        state.turnActionError = action.payload ?? "上传失败，请重试。";
+      })
+      .addCase(discardPendingTurn.pending, (state) => {
+        state.isDiscarding = true;
+        state.turnActionError = null;
+      })
+      .addCase(discardPendingTurn.fulfilled, (state) => {
+        state.isDiscarding = false;
+        state.pendingReviewTurn = null;
+        state.clientTurnId = null;
+        state.recordingState = "ready";
+        state.turnActionError = null;
+      })
+      .addCase(discardPendingTurn.rejected, (state, action) => {
+        state.isDiscarding = false;
+        state.turnActionError = action.payload ?? "重说失败，请重试。";
       });
   },
 });
@@ -150,6 +295,17 @@ function applySessionDetail(state: PracticeState, session: PracticeSessionDetail
   state.currentStepNo = session.current_step_no;
   state.sessionStatus = session.status;
   state.turns = session.turns;
+}
+
+function mapPendingReviewTurn(response: SubmitUserTurnResponse): PendingReviewTurn {
+  return {
+    id: response.turn.id,
+    turn_index: response.turn.turn_index,
+    transcript: response.turn.transcript,
+    asr_confidence: response.turn.asr_confidence,
+    needs_retry: response.turn.needs_retry,
+    hint: response.hint,
+  };
 }
 
 function isUnauthorized(error: unknown) {
@@ -176,6 +332,35 @@ function getSessionErrorMessage(error: unknown) {
   return "无法连接服务，请确认后端已启动。";
 }
 
+function getTurnActionErrorMessage(error: unknown) {
+  if (error instanceof ApiRequestError) {
+    switch (error.code) {
+      case "SESSION_NOT_IN_PROGRESS":
+        return "当前练习已结束。";
+      case "AUDIO_REQUIRED":
+        return "请重新录音。";
+      case "AUDIO_TOO_LARGE":
+        return "音频太大，请缩短录音。";
+      case "AUDIO_DURATION_EXCEEDED":
+        return "单次最多录 60 秒。";
+      case "UNSUPPORTED_AUDIO_TYPE":
+        return "当前浏览器录音格式暂不支持。";
+      case "ASR_FAILED":
+        return "识别失败，请重试。";
+      case "RATE_LIMITED":
+        return "今日练习轮次已达上限。";
+      case "TURN_NOT_FOUND":
+        return "识别结果不存在。";
+      case "TURN_NOT_PENDING":
+        return "当前识别结果不可重说。";
+      default:
+        return error.message || "操作失败，请稍后重试。";
+    }
+  }
+
+  return "无法连接服务，请确认后端已启动。";
+}
+
 export const {
   resetPractice,
   setRecordingState,
@@ -187,6 +372,8 @@ export const {
   clearCapturedRecording,
   setMicPermissionError,
   clearMicPermissionError,
+  setClientTurnId,
+  clearTurnActionError,
 } = practiceSlice.actions;
 
 export const practiceReducer = practiceSlice.reducer;

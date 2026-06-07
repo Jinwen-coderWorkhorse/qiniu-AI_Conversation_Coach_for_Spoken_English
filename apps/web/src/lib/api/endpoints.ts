@@ -4,6 +4,7 @@ import type {
   AnonymousAuthResponse,
   CreatePracticeSessionRequest,
   CreatePracticeSessionResponse,
+  DiscardTurnResponse,
   HistoryListResponse,
   ListPracticeSessionsQuery,
   PracticeSessionDetail,
@@ -11,6 +12,8 @@ import type {
   ScenarioDetail,
   ScenariosResponse,
   StatsResponse,
+  SubmitUserTurnPayload,
+  SubmitUserTurnResponse,
 } from "./contracts";
 
 export function postAnonymousAuth(
@@ -92,4 +95,52 @@ export function getPracticeSession(
     `/practice-sessions/${encodeURIComponent(sessionId)}`,
     { accessToken },
   );
+}
+
+export function submitUserTurn(
+  sessionId: string,
+  payload: SubmitUserTurnPayload,
+  accessToken: string,
+  client: ApiClient = apiClient,
+) {
+  const formData = new FormData();
+  const extension = getAudioFileExtension(payload.mime_type);
+
+  formData.append("audio", payload.audio, `recording.${extension}`);
+  formData.append("client_turn_id", payload.client_turn_id);
+  formData.append("duration_ms", String(payload.duration_ms));
+  formData.append("mime_type", payload.mime_type);
+
+  return client.post<SubmitUserTurnResponse>(
+    `/practice-sessions/${encodeURIComponent(sessionId)}/user-turns`,
+    formData,
+    { accessToken },
+  );
+}
+
+export function discardUserTurn(
+  sessionId: string,
+  turnId: string,
+  accessToken: string,
+  client: ApiClient = apiClient,
+) {
+  return client.post<DiscardTurnResponse>(
+    `/practice-sessions/${encodeURIComponent(sessionId)}/turns/${encodeURIComponent(turnId)}/discard`,
+    undefined,
+    { accessToken },
+  );
+}
+
+function getAudioFileExtension(mimeType: string) {
+  switch (mimeType) {
+    case "audio/mp4":
+      return "mp4";
+    case "audio/mpeg":
+      return "mp3";
+    case "audio/wav":
+    case "audio/x-wav":
+      return "wav";
+    default:
+      return "webm";
+  }
 }

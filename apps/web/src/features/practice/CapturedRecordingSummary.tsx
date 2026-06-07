@@ -13,11 +13,11 @@ export function CapturedRecordingSummary({ recording }: CapturedRecordingSummary
     <section className="practice-capture-summary" aria-live="polite">
       <div className="practice-section-heading">
         <h2>本地录音结果</h2>
-        <span>待上传</span>
+        <span>上传中</span>
       </div>
       <p className="practice-capture-summary-text">
         已录制 {formatDuration(recording.durationMs)} 音频（{recording.mimeType}，{sizeLabel}）。
-        {stopReasonLabel}。上传接口将在 D-03 接入。
+        {stopReasonLabel}。正在上传到服务器进行识别。
       </p>
     </section>
   );
