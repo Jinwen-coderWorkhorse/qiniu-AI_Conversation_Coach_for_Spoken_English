@@ -4,6 +4,7 @@ import type {
   AnonymousAuthResponse,
   CreatePracticeSessionRequest,
   CreatePracticeSessionResponse,
+  PracticeSessionReportResponse,
   ScenarioDetail,
   ScenariosResponse,
 } from "./contracts";
@@ -37,4 +38,15 @@ export function createPracticeSession(
   return client.post<CreatePracticeSessionResponse>("/practice-sessions", payload, {
     accessToken,
   });
+}
+
+export function getPracticeSessionReport(
+  sessionId: string,
+  accessToken: string,
+  client: ApiClient = apiClient,
+) {
+  return client.get<PracticeSessionReportResponse>(
+    `/practice-sessions/${encodeURIComponent(sessionId)}/report`,
+    { accessToken },
+  );
 }
