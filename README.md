@@ -218,6 +218,111 @@ sequenceDiagram
 
 ---
 
+## AI 语音模型接入（ASR / LLM / TTS）
+
+三类 AI 能力通过 **Provider Client 层**统一接入，业务编排（`Conversation Orchestrator`、报告 Worker）只依赖标准接口，不直接耦合具体厂商 SDK。切换或混用七牛云、OpenAI 等服务商时，**只需改环境变量或在 Provider 层新增实现**，上层 Use Case 与前端无需改动。
+
+### 各模型职责与调用时机
+
+| 能力 | 作用 | 何时调用 | 后端入口 |
+|---|---|---|---|
+| **ASR**（语音识别） | 将用户录音转为 transcript，并返回置信度、语速、停顿等指标 | 用户松手上传语音后（`POST /practice-sessions/{id}/user-turns`） | `infrastructure/providers/asr_client.py` |
+| **LLM**（对话） | 根据场景角色、当前步骤和对话上下文，生成 AI 角色内回复 | 用户确认 transcript 后（`POST /practice-sessions/{id}/turns/{turn_id}/confirm`） | `infrastructure/providers/llm_client.py` |
+| **TTS**（语音合成） | 将 AI 回复文本合成为音频，供前端播放 | 同上 confirm 链路，LLM 返回文本之后 | `infrastructure/providers/tts_client.py` |
+| **LLM**（报告） | 汇总整段对话 transcript 与 ASR 指标，输出结构化课后报告 JSON | 用户结束练习后，Report Worker 异步执行 | `domain/services/assessment_service.py` → `llm_client.py` |
+
+对应链路：
+
+```text
+按住说话 → ASR 识别 → 用户确认 → LLM 生成回复 → TTS 合成语音 → 播放
+结束练习 → LLM 生成报告 → 写入 assessment_reports
+```
+
+### 环境变量
+
+在仓库根目录复制 `.env.example` 为 `.env`，或在启动 API 的终端中设置以下变量（API 进程**不会自动加载** `.env` 文件，需显式 export / `$env:`）：
+
+| 环境变量 | 说明 |
+|---|---|
+| `AI_PROVIDER` | **LLM** 使用的 Provider 标识；`ASR_PROVIDER` / `TTS_PROVIDER` 留空时，ASR 与 TTS 也沿用此值 |
+| `ASR_PROVIDER` | 可选，单独指定 ASR Provider（优先级高于 `AI_PROVIDER`） |
+| `TTS_PROVIDER` | 可选，单独指定 TTS Provider（优先级高于 `AI_PROVIDER`） |
+| `LLM_API_KEY` | 大模型 API 密钥 |
+| `ASR_API_KEY` | 语音识别 API 密钥 |
+| `TTS_API_KEY` | 语音合成 API 密钥 |
+| `PROVIDER_MAX_RETRIES` | Provider 调用失败时的重试次数，默认 `2` |
+
+**混用示例**（ASR、LLM、TTS 来自不同厂商）：
+
+```powershell
+$env:ASR_PROVIDER = "qiniu-asr"
+$env:AI_PROVIDER = "qiniu-llm"      # LLM 对话 + 报告
+$env:TTS_PROVIDER = "qiniu-tts"
+$env:ASR_API_KEY = "your-asr-key"
+$env:LLM_API_KEY = "your-llm-key"
+$env:TTS_API_KEY = "your-tts-key"
+```
+
+### 本地开发（默认，无需 API Key）
+
+不设置上述变量时，API 使用内置本地 Provider，可直接跑通「选场景 → 录音 → 识别 → 确认 → AI 回复 → 报告 → 历史」全链路，适合黑客松演示与 E2E 测试。
+
+```powershell
+cd apps/api
+python -m uvicorn src.main:app --host 127.0.0.1 --port 8000 --reload
+```
+
+### 接入七牛云 / 第三方真实服务
+
+1. 在 [七牛云控制台](https://portal.qiniu.com/) 开通 ASR、大模型、TTS 能力并获取 API Key。
+2. 设置环境变量（见上表），将 `AI_PROVIDER` / `ASR_PROVIDER` / `TTS_PROVIDER` 改为你的实现标识。
+3. 在 `apps/api/src/infrastructure/providers/` 下实现对应 Client，并在工厂方法中注册：
+
+| 文件 | 需实现的接口 |
+|---|---|
+| `asr_client.py` | `transcribe(audio_file, mime_type, ...) -> AsrResult` |
+| `llm_client.py` | `generate_reply(context) -> LlmReplyResult`；`generate_report(prompt, context) -> dict` |
+| `tts_client.py` | `synthesize(text, voice) -> TtsResult` |
+
+统一返回结构（详见 [07-公共基础组件详细设计 §5](docs/详细设计/07-公共基础组件详细设计.md)）：
+
+| Client | 返回字段 |
+|---|---|
+| ASR | `transcript`、`confidence`、`word_confidences`、`speech_rate_wpm`、`pause_count`、`duration_ms` |
+| LLM 对话 | `text`（角色内回复纯文本） |
+| LLM 报告 | JSON dict，经 `ReportSchema` 校验后入库 |
+| TTS | `audio_bytes`、`mime_type`、`duration_ms` |
+
+**扩展示例**（在 `_build_asr_client()` 中注册七牛云实现）：
+
+```python
+def _build_asr_client() -> AsrClient:
+    settings = get_settings()
+    provider = settings.asr_provider or settings.ai_provider
+    if provider == "qiniu-asr":
+        return QiniuAsrClient(api_key=os.getenv("ASR_API_KEY"))
+    # 按 provider 标识继续扩展 openai-whisper、azure 等
+    return LocalAsrClient()  # 本地默认实现
+```
+
+LLM、TTS 同理在 `llm_client.py`、`tts_client.py` 的 `_build_*_client()` 中扩展。Orchestrator、Assessment Service、前端页面**均无需修改**。
+
+### 容错与降级
+
+| 场景 | 系统行为 |
+|---|---|
+| ASR 调用失败 | 返回 `ASR_FAILED`（502），前端提示重试上传 |
+| ASR 低置信（< 0.65） | 返回 transcript 但标记 `needs_retry`，建议用户重说 |
+| LLM 对话失败 | 优先使用场景兜底追问（如 *Could you tell me more?*）；兜底也失败则返回 `LLM_FAILED` |
+| TTS 失败 | 仍返回 AI 文本，`audio_url` 为空，前端文本降级展示，用户可继续下一轮 |
+| LLM 报告失败 | 报告状态变为 `failed`，可重新触发或查看错误信息 |
+
+Provider 超时、429、5xx 会自动重试（最多 `PROVIDER_MAX_RETRIES` 次）；4xx 参数错误不重试。
+
+> 更多接口契约与错误码见 [03-接口详细定义](docs/详细设计/03-接口详细定义.md)、Provider 设计见 [07-公共基础组件详细设计 §5](docs/详细设计/07-公共基础组件详细设计.md)。
+
+---
+
 ## 本地开发与联调
 
 七牛云 AI 英语口语教练本地开发与联调指南。克隆仓库后按下方步骤启动，即可跑通完整主流程。
@@ -387,16 +492,16 @@ npm run dev
 
 ## 环境变量
 
-本地开发使用 `.env.example` 中的默认配置即可跑通完整主流程。关键变量说明：
+除 [AI 语音模型接入](#ai-语音模型接入asr--llm--tts) 中的 Provider 配置外，以下为其他常用变量：
 
 | 环境变量 | 说明 |
 |---|---|
 | `DATABASE_URL` | 数据库连接串（SQLite / MySQL） |
-| `AI_PROVIDER` | 对话链路 Provider 实现，详见 `.env.example` |
 | `REPORT_WORKER_MODE` | `sync` 时报告在 API 进程内同步生成，无需单独起 Worker |
 | `JWT_SECRET` | 鉴权密钥，本地与生产需保持一致 |
+| `S3_ENDPOINT` / `S3_ACCESS_KEY` / `S3_SECRET_KEY` / `S3_BUCKET` | 音频对象存储（MinIO / 七牛云 Kodo 等 S3 兼容服务） |
 
-更多配置项与默认值见仓库根目录 [`.env.example`](.env.example)。
+完整清单与默认值见仓库根目录 [`.env.example`](.env.example)。
 
 ---
 
