@@ -39,7 +39,7 @@ function getStatusLabel(
     case "loadingOpening":
       return "正在恢复练习...";
     case "ready":
-      return capturedRecording ? "录音已暂存，等待上传" : "可以开始说话";
+      return capturedRecording ? "录音完成，准备上传" : "可以开始说话";
     case "aiSpeaking":
       return "AI 正在发言";
     case "recording":
@@ -49,7 +49,7 @@ function getStatusLabel(
     case "transcribing":
       return "识别中";
     case "transcriptReview":
-      return "等待确认识别结果";
+      return "请查看识别结果";
     case "aiThinking":
       return "AI 正在回应";
     case "ending":

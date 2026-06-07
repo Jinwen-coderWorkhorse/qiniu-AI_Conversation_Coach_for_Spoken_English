@@ -801,6 +801,81 @@ h1 {
   overflow-wrap: anywhere;
 }
 
+.practice-transcript-review {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(8, 117, 104, 0.22);
+  background: rgba(8, 117, 104, 0.08);
+}
+
+.practice-transcript-review-text {
+  margin: 0;
+  color: var(--color-text);
+  font-size: 18px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.practice-transcript-review-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+}
+
+.practice-transcript-confidence {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-muted);
+  font-size: 14px;
+}
+
+.practice-transcript-confidence strong {
+  color: var(--color-accent);
+  font-size: 16px;
+}
+
+.practice-transcript-review-hint {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(181, 106, 24, 0.12);
+  color: #9a5300;
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+
+.practice-transcript-review-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.practice-turn-action-error {
+  display: grid;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(181, 74, 54, 0.24);
+  background: rgba(181, 74, 54, 0.08);
+}
+
+.practice-turn-action-error-message {
+  margin: 0;
+  color: #a33b28;
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+
+.practice-status-value[data-state="uploading"],
+.practice-status-value[data-state="transcribing"],
+.practice-status-value[data-state="transcriptReview"] {
+  color: var(--color-accent);
+}
+
 .practice-error-card {
   display: grid;
   gap: 16px;
