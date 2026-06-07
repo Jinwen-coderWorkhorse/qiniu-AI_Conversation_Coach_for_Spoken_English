@@ -7,6 +7,8 @@ import type {
   CreatePracticeSessionRequest,
   CreatePracticeSessionResponse,
   DiscardTurnResponse,
+  EndPracticeSessionRequest,
+  EndPracticeSessionResponse,
   HistoryListResponse,
   ListPracticeSessionsQuery,
   PracticeSessionDetail,
@@ -145,6 +147,41 @@ export function confirmUserTurn(
     payload,
     { accessToken },
   );
+}
+
+export function endPracticeSession(
+  sessionId: string,
+  payload: EndPracticeSessionRequest,
+  accessToken: string,
+  client: ApiClient = apiClient,
+) {
+  return client.post<EndPracticeSessionResponse>(
+    `/practice-sessions/${encodeURIComponent(sessionId)}/end`,
+    payload,
+    { accessToken },
+  );
+}
+
+export function buildPracticeSessionEventsUrl(sessionId: string, baseUrl?: string) {
+  const configuredBaseUrl = stripApiBaseUrl(baseUrl ?? process.env.NEXT_PUBLIC_API_BASE_URL);
+  const path = `/practice-sessions/${encodeURIComponent(sessionId)}/events`;
+
+  if (/^https?:\/\//.test(configuredBaseUrl)) {
+    return `${configuredBaseUrl}/${path.replace(/^\/+/, "")}`;
+  }
+
+  if (typeof window !== "undefined") {
+    const origin = window.location.origin.replace(/\/+$/, "");
+    const prefix = configuredBaseUrl === "/" ? "" : configuredBaseUrl;
+    return `${origin}${prefix}/${path.replace(/^\/+/, "")}`;
+  }
+
+  return `/${path.replace(/^\/+/, "")}`;
+}
+
+function stripApiBaseUrl(value?: string) {
+  const normalized = (value || "/api/v1").replace(/\/+$/, "");
+  return normalized || "/api/v1";
 }
 
 function getAudioFileExtension(mimeType: string) {

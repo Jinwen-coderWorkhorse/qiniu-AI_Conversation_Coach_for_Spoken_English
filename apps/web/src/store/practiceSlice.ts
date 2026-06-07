@@ -4,11 +4,19 @@ import { ApiRequestError } from "@/lib/api/client";
 import type {
   ConfirmTurnResponse,
   ConversationTurn,
+  EndPracticeSessionResponse,
   PracticeSessionDetail,
+  PracticeSessionEvent,
   SessionScenario,
   SubmitUserTurnResponse,
 } from "@/lib/api/contracts";
-import { confirmUserTurn, discardUserTurn, getPracticeSession, submitUserTurn } from "@/lib/api/endpoints";
+import {
+  confirmUserTurn,
+  discardUserTurn,
+  endPracticeSession,
+  getPracticeSession,
+  submitUserTurn,
+} from "@/lib/api/endpoints";
 import { normalizeUploadMimeType } from "@/lib/audio/uploadMimeType";
 import {
   authenticateAnonymousIdentity,
@@ -71,6 +79,10 @@ export type PracticeState = {
   isDiscarding: boolean;
   isConfirming: boolean;
   showAiTextFallback: boolean;
+  reportId: string | null;
+  reportProgressMessage: string | null;
+  endPracticeError: string | null;
+  isEndingPractice: boolean;
 };
 
 const initialState: PracticeState = {
@@ -91,6 +103,10 @@ const initialState: PracticeState = {
   isDiscarding: false,
   isConfirming: false,
   showAiTextFallback: false,
+  reportId: null,
+  reportProgressMessage: null,
+  endPracticeError: null,
+  isEndingPractice: false,
 };
 
 export const loadPracticeSession = createAsyncThunk<
@@ -194,6 +210,30 @@ export const discardPendingTurn = createAsyncThunk<
   }
 });
 
+export const endPractice = createAsyncThunk<
+  EndPracticeSessionResponse,
+  string,
+  { rejectValue: string }
+>("practice/endPractice", async (sessionId, { rejectWithValue }) => {
+  try {
+    const identity = await ensureAnonymousIdentity();
+    return await endPracticeSession(sessionId, { reason: "user_finished" }, identity.access_token);
+  } catch (error) {
+    if (isUnauthorized(error)) {
+      clearAnonymousAccessToken();
+
+      try {
+        const identity = await authenticateAnonymousIdentity();
+        return await endPracticeSession(sessionId, { reason: "user_finished" }, identity.access_token);
+      } catch (retryError) {
+        return rejectWithValue(getEndPracticeErrorMessage(retryError));
+      }
+    }
+
+    return rejectWithValue(getEndPracticeErrorMessage(error));
+  }
+});
+
 export const confirmPendingTurn = createAsyncThunk<
   ConfirmTurnResponse,
   { sessionId: string; turnId: string },
@@ -270,6 +310,23 @@ const practiceSlice = createSlice({
     clearTurnActionError: (state) => {
       state.turnActionError = null;
     },
+    clearEndPracticeError: (state) => {
+      state.endPracticeError = null;
+    },
+    setSessionStatus: (state, action: PayloadAction<string>) => {
+      state.sessionStatus = action.payload;
+    },
+    applyReportProgressEvent: (state, action: PayloadAction<PracticeSessionEvent>) => {
+      state.reportProgressMessage = getReportProgressMessage(action.payload);
+
+      if (action.payload.type === "practice.step.changed") {
+        const stepNo = action.payload.data.current_step_no;
+
+        if (typeof stepNo === "number") {
+          state.currentStepNo = stepNo;
+        }
+      }
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -280,9 +337,12 @@ const practiceSlice = createSlice({
       })
       .addCase(loadPracticeSession.fulfilled, (state, action) => {
         applySessionDetail(state, action.payload);
-        state.recordingState = "ready";
+        state.recordingState = resolveRecordingStateFromSession(action.payload.status);
         state.error = null;
         state.turnActionError = null;
+        state.endPracticeError = null;
+        state.reportProgressMessage =
+          action.payload.status === "reporting" ? "正在生成报告..." : null;
       })
       .addCase(loadPracticeSession.rejected, (state, action) => {
         state.recordingState = "error";
@@ -330,6 +390,27 @@ const practiceSlice = createSlice({
         state.isConfirming = false;
         state.recordingState = "transcriptReview";
         state.turnActionError = action.payload ?? "确认失败，请重试。";
+      })
+      .addCase(endPractice.pending, (state) => {
+        state.isEndingPractice = true;
+        state.endPracticeError = null;
+        state.recordingState = "ending";
+      })
+      .addCase(endPractice.fulfilled, (state, action) => {
+        state.isEndingPractice = false;
+        state.sessionStatus = action.payload.status;
+        state.reportId = action.payload.report_id;
+        state.recordingState = "reporting";
+        state.reportProgressMessage = "正在生成报告...";
+        state.endPracticeError = null;
+        state.pendingReviewTurn = null;
+        state.capturedRecording = null;
+        state.turnActionError = null;
+      })
+      .addCase(endPractice.rejected, (state, action) => {
+        state.isEndingPractice = false;
+        state.recordingState = "ready";
+        state.endPracticeError = action.payload ?? "结束练习失败，请重试。";
       });
   },
 });
@@ -424,6 +505,56 @@ function getSessionErrorMessage(error: unknown) {
   return "无法连接服务，请确认后端已启动。";
 }
 
+function resolveRecordingStateFromSession(status: string): PracticeRecordingState {
+  switch (status) {
+    case "reporting":
+    case "completed":
+      return "reporting";
+    default:
+      return "ready";
+  }
+}
+
+function getReportProgressMessage(event: PracticeSessionEvent) {
+  switch (event.type) {
+    case "ai.generating":
+      return "AI 正在生成回复...";
+    case "ai.text.delta":
+      return "AI 正在组织回复...";
+    case "ai.text.done":
+      return "AI 回复文本已就绪";
+    case "ai.audio.ready":
+      return "AI 音频已就绪";
+    case "practice.step.changed":
+      return "练习步骤已更新";
+    case "report.ready":
+      return "报告已生成，正在跳转...";
+    case "error": {
+      const message = event.data.message;
+      return typeof message === "string" ? message : "练习进度出现异常";
+    }
+    default:
+      return null;
+  }
+}
+
+function getEndPracticeErrorMessage(error: unknown) {
+  if (error instanceof ApiRequestError) {
+    switch (error.code) {
+      case "CONFLICT":
+        return "暂无可生成报告的内容，请先完成至少一轮对话。";
+      case "NOT_FOUND":
+        return "练习不存在或已被删除。";
+      case "FORBIDDEN":
+        return "无权结束这次练习。";
+      default:
+        return error.message || "结束练习失败，请稍后重试。";
+    }
+  }
+
+  return "无法连接服务，请确认后端已启动。";
+}
+
 function getTurnActionErrorMessage(error: unknown) {
   if (error instanceof ApiRequestError) {
     switch (error.code) {
@@ -468,6 +599,9 @@ export const {
   clearMicPermissionError,
   setClientTurnId,
   clearTurnActionError,
+  clearEndPracticeError,
+  setSessionStatus,
+  applyReportProgressEvent,
 } = practiceSlice.actions;
 
 export const practiceReducer = practiceSlice.reducer;

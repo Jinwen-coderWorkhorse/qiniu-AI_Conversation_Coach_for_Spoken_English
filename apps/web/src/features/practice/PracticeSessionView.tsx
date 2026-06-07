@@ -8,11 +8,13 @@ import { useAppDispatch, useAppSelector } from "@/store/hooks";
 
 import { AiCurrentUtterance } from "./AiCurrentUtterance";
 import { CapturedRecordingSummary } from "./CapturedRecordingSummary";
+import { EndPracticeConfirm } from "./EndPracticeConfirm";
 import { MicPermissionAlert } from "./MicPermissionAlert";
 import { PracticeHeader } from "./PracticeHeader";
 import { PracticeStatus } from "./PracticeStatus";
 import { PushToTalkButton } from "./PushToTalkButton";
 import { RecentTranscript } from "./RecentTranscript";
+import { ReportingOverlay } from "./ReportingOverlay";
 import { TranscriptReview } from "./TranscriptReview";
 import { TurnActionError } from "./TurnActionError";
 import {
@@ -21,7 +23,9 @@ import {
   selectRecentTurns,
 } from "./practiceSelectors";
 import { usePracticeAiPlayback } from "./usePracticeAiPlayback";
+import { usePracticeEnd } from "./usePracticeEnd";
 import { usePracticeRecording } from "./usePracticeRecording";
+import { usePracticeReporting } from "./usePracticeReporting";
 import { usePracticeUserTurn } from "./usePracticeUserTurn";
 
 type PracticeSessionViewProps = {
@@ -49,6 +53,8 @@ export function PracticeSessionView({ sessionId }: PracticeSessionViewProps) {
     getLatestRecording: recording.getLatestRecording,
   });
   usePracticeAiPlayback();
+  const practiceEnd = usePracticeEnd({ sessionId });
+  usePracticeReporting({ sessionId });
 
   useEffect(() => {
     dispatch(resetPractice());
@@ -63,16 +69,36 @@ export function PracticeSessionView({ sessionId }: PracticeSessionViewProps) {
   const isSessionError = practice.recordingState === "error";
   const isReady = Boolean(practice.scenario && practice.currentStepNo !== null);
   const isRecording = practice.recordingState === "recording";
+  const isReporting = practice.recordingState === "reporting" || practice.recordingState === "ending";
   const showCapturedSummary =
     practice.capturedRecording !== null && practice.recordingState === "uploading";
   const showTranscriptReview =
     practice.recordingState === "transcriptReview" && practice.pendingReviewTurn !== null;
+
+  const endPracticeDisabled = useMemo(() => {
+    return (
+      isRecording ||
+      practice.sessionStatus !== "in_progress" ||
+      practice.isEndingPractice ||
+      practice.isConfirming ||
+      practice.isDiscarding ||
+      BLOCKED_TALK_STATES.has(practice.recordingState)
+    );
+  }, [
+    isRecording,
+    practice.isConfirming,
+    practice.isDiscarding,
+    practice.isEndingPractice,
+    practice.recordingState,
+    practice.sessionStatus,
+  ]);
 
   const talkButtonDisabled = useMemo(() => {
     return (
       !recording.canRecord ||
       isLoading ||
       isSessionError ||
+      isReporting ||
       practice.sessionStatus !== "in_progress" ||
       BLOCKED_TALK_STATES.has(practice.recordingState) ||
       practice.isDiscarding ||
@@ -80,6 +106,7 @@ export function PracticeSessionView({ sessionId }: PracticeSessionViewProps) {
     );
   }, [
     isLoading,
+    isReporting,
     isSessionError,
     practice.isConfirming,
     practice.isDiscarding,
@@ -123,8 +150,9 @@ export function PracticeSessionView({ sessionId }: PracticeSessionViewProps) {
                 scenario={practice.scenario}
                 currentStepNo={practice.currentStepNo}
                 sessionStatus={practice.sessionStatus ?? "in_progress"}
-                endPracticeDisabled={isRecording || practice.recordingState !== "ready"}
+                endPracticeDisabled={endPracticeDisabled}
                 isRecording={isRecording}
+                onEndPractice={practiceEnd.openConfirm}
               />
             ) : (
               <div className="practice-header-loading" aria-busy="true">
@@ -151,7 +179,16 @@ export function PracticeSessionView({ sessionId }: PracticeSessionViewProps) {
               recordingState={practice.recordingState}
               error={practice.error}
               capturedRecording={practice.capturedRecording}
+              reportProgressMessage={practice.reportProgressMessage}
             />
+
+            {practiceEnd.endPracticeError ? (
+              <TurnActionError
+                message={practiceEnd.endPracticeError}
+                onRetry={practiceEnd.openConfirm}
+                retryLabel="重新结束"
+              />
+            ) : null}
 
             {practice.turnActionError ? (
               <TurnActionError
@@ -184,18 +221,29 @@ export function PracticeSessionView({ sessionId }: PracticeSessionViewProps) {
             ) : null}
           </div>
 
-          <PushToTalkButton
-            disabled={talkButtonDisabled}
-            durationMs={recording.recordingDurationMs}
-            isRecording={recording.isRecording}
-            recordingState={practice.recordingState}
-            waveformLevel={recording.waveformLevel}
-            onPressCancel={() => void recording.handlePressCancel()}
-            onPressEnd={() => void recording.handlePressEnd()}
-            onPressStart={() => void recording.handlePressStart()}
-          />
+          {!isReporting ? (
+            <PushToTalkButton
+              disabled={talkButtonDisabled}
+              durationMs={recording.recordingDurationMs}
+              isRecording={recording.isRecording}
+              recordingState={practice.recordingState}
+              waveformLevel={recording.waveformLevel}
+              onPressCancel={() => void recording.handlePressCancel()}
+              onPressEnd={() => void recording.handlePressEnd()}
+              onPressStart={() => void recording.handlePressStart()}
+            />
+          ) : null}
         </div>
       ) : null}
+
+      <EndPracticeConfirm
+        open={practiceEnd.confirmOpen}
+        isSubmitting={practiceEnd.isEndingPractice}
+        onCancel={practiceEnd.closeConfirm}
+        onConfirm={() => void practiceEnd.confirmEndPractice()}
+      />
+
+      {isReporting ? <ReportingOverlay message={practice.reportProgressMessage} /> : null}
     </section>
   );
 }

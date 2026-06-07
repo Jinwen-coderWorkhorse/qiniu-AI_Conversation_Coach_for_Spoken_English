@@ -523,6 +523,92 @@ h1 {
   cursor: not-allowed;
 }
 
+.practice-confirm-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(18, 28, 26, 0.42);
+}
+
+.practice-confirm-dialog {
+  width: min(100%, 360px);
+  padding: 20px;
+  border: 1px solid rgba(200, 216, 212, 0.92);
+  border-radius: 16px;
+  background: var(--color-surface);
+  box-shadow: 0 18px 48px rgba(18, 28, 26, 0.18);
+}
+
+.practice-confirm-title {
+  margin: 0;
+  font-size: 22px;
+  line-height: 1.2;
+}
+
+.practice-confirm-message {
+  margin: 12px 0 0;
+  color: var(--color-muted);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.practice-confirm-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.practice-confirm-submit {
+  flex: 1 1 auto;
+}
+
+.practice-reporting-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(247, 250, 249, 0.82);
+  backdrop-filter: blur(2px);
+}
+
+.practice-reporting-card {
+  width: min(100%, 360px);
+  padding: 24px 20px;
+  border: 1px solid rgba(200, 216, 212, 0.92);
+  border-radius: 16px;
+  background: var(--color-surface);
+  text-align: center;
+  box-shadow: 0 18px 48px rgba(18, 28, 26, 0.12);
+}
+
+.practice-reporting-eyebrow {
+  margin: 0;
+  color: var(--color-accent);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.practice-reporting-title {
+  margin: 10px 0 0;
+  font-size: 24px;
+  line-height: 1.2;
+}
+
+.practice-reporting-message {
+  margin: 12px 0 0;
+  color: var(--color-muted);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
 .practice-header-title {
   margin: 0;
   font-size: 28px;

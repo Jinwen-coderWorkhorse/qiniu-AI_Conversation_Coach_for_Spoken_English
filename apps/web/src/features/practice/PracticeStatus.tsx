@@ -4,14 +4,16 @@ type PracticeStatusProps = {
   recordingState: PracticeRecordingState;
   error?: string | null;
   capturedRecording?: CapturedRecordingSummary | null;
+  reportProgressMessage?: string | null;
 };
 
 export function PracticeStatus({
   recordingState,
   error,
   capturedRecording,
+  reportProgressMessage,
 }: PracticeStatusProps) {
-  const label = getStatusLabel(recordingState, capturedRecording);
+  const label = getStatusLabel(recordingState, capturedRecording, reportProgressMessage);
 
   return (
     <section className="practice-status" aria-live="polite">
@@ -34,6 +36,7 @@ export function PracticeStatus({
 function getStatusLabel(
   state: PracticeRecordingState,
   capturedRecording?: CapturedRecordingSummary | null,
+  reportProgressMessage?: string | null,
 ) {
   switch (state) {
     case "loadingOpening":
@@ -55,7 +58,7 @@ function getStatusLabel(
     case "ending":
       return "结束练习中";
     case "reporting":
-      return "报告生成中";
+      return reportProgressMessage ?? "报告生成中";
     case "error":
       return "出现异常";
     default:

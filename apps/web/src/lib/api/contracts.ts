@@ -256,3 +256,29 @@ export type ConfirmTurnResponse = {
   ai_turn: AiTurn;
   current_step_no: number;
 };
+
+export type EndPracticeSessionReason = "user_finished" | "timeout";
+
+export type EndPracticeSessionRequest = {
+  reason: EndPracticeSessionReason;
+};
+
+export type EndPracticeSessionResponse = {
+  session_id: string;
+  status: string;
+  report_id: string;
+};
+
+export type PracticeSessionEventName =
+  | "ai.generating"
+  | "ai.text.delta"
+  | "ai.text.done"
+  | "ai.audio.ready"
+  | "practice.step.changed"
+  | "report.ready"
+  | "error";
+
+export type PracticeSessionEvent = {
+  type: PracticeSessionEventName;
+  data: Record<string, unknown>;
+};
