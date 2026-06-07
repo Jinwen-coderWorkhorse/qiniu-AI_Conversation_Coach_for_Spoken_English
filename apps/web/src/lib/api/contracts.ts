@@ -80,3 +80,61 @@ export type CreatePracticeSessionResponse = {
   };
   events_url: string;
 };
+
+export type ReportStatus = "pending" | "completed" | "failed";
+
+export type ReportScores = {
+  pronunciation: number;
+  fluency: number;
+  grammar: number;
+  expression: number;
+};
+
+export type ReportOverview = {
+  overall_score: number;
+  level_description: string;
+  one_sentence_summary: string;
+  scores: ReportScores;
+};
+
+export type ReportItemType = "pronunciation" | "grammar" | "expression";
+
+export type ReportItem = {
+  id: string;
+  type: ReportItemType;
+  explanation: string;
+  practice_text: string;
+  original_text?: string | null;
+  suggestion_text?: string | null;
+};
+
+export type ReportStateError = {
+  code: string;
+  message: string;
+};
+
+export type ReportPendingResponse = {
+  id: string;
+  session_id: string;
+  status: "pending";
+};
+
+export type ReportCompletedResponse = {
+  id: string;
+  session_id: string;
+  status: "completed";
+  overview: ReportOverview;
+  items: ReportItem[];
+};
+
+export type ReportFailedResponse = {
+  id: string;
+  session_id: string;
+  status: "failed";
+  error: ReportStateError;
+};
+
+export type PracticeSessionReportResponse =
+  | ReportPendingResponse
+  | ReportCompletedResponse
+  | ReportFailedResponse;
