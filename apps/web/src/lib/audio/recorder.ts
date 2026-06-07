@@ -1,6 +1,15 @@
-import RecordRTC from "recordrtc";
+"use client";
 
 import { createWaveformSampler, type WaveformSampler } from "./waveform";
+
+type RecordRTCInstance = InstanceType<typeof import("recordrtc").default>;
+
+let recordRtcModulePromise: Promise<typeof import("recordrtc").default> | null = null;
+
+async function loadRecordRTC() {
+  recordRtcModulePromise ??= import("recordrtc").then((module) => module.default);
+  return recordRtcModulePromise;
+}
 
 export const MAX_RECORDING_DURATION_MS = 60_000;
 
@@ -65,7 +74,7 @@ export function normalizeRecordingMimeType(blob: Blob, preferredMimeType: string
 
 export class PracticeRecorder {
   private stream: MediaStream | null = null;
-  private recorder: RecordRTC | null = null;
+  private recorder: RecordRTCInstance | null = null;
   private waveformSampler: WaveformSampler | null = null;
   private startedAt = 0;
   private durationTimer: ReturnType<typeof setInterval> | null = null;
@@ -104,6 +113,8 @@ export class PracticeRecorder {
     } catch (error) {
       throw mapGetUserMediaError(error);
     }
+
+    const RecordRTC = await loadRecordRTC();
 
     this.recorder = new RecordRTC(this.stream, {
       type: "audio",
