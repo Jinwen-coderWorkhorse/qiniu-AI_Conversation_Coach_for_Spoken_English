@@ -1,0 +1,10 @@
+{
+  "scenario_slug": "meeting",
+  "replies": [
+    "Thanks. Are there any blockers we should discuss?",
+    "What support do you need to move this forward?",
+    "That sounds reasonable. What should we do next?",
+    "Can you confirm who owns the next action item?"
+  ],
+  "contract": "src.infrastructure.providers.mock_provider.MOCK_AI_REPLIES.meeting"
+}

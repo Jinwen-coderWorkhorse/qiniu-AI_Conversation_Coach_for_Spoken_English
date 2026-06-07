@@ -1,0 +1,10 @@
+{
+  "scenario_slug": "restaurant",
+  "replies": [
+    "Great. Would you like to hear today's specials?",
+    "We have grilled salmon and mushroom pasta. Which sounds better to you?",
+    "Excellent choice. Would you like anything to drink with that?",
+    "Of course. I will bring the bill in a moment."
+  ],
+  "contract": "src.infrastructure.providers.mock_provider.MOCK_AI_REPLIES.restaurant"
+}

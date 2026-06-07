@@ -1,0 +1,14 @@
+{
+  "scenario_slug": "interview",
+  "transcript": "My name is Alex. I worked on a shopping app.",
+  "confidence": 0.91,
+  "needs_retry": false,
+  "metrics": {
+    "duration_ms": 6200,
+    "word_count": 11,
+    "speech_rate_wpm": 106,
+    "pause_count": 2
+  },
+  "audio_fixture": "interview_user.webm",
+  "notes": "与 mock_provider.DEFAULT_TRANSCRIPT 对齐，供面试场景联调复用。"
+}
