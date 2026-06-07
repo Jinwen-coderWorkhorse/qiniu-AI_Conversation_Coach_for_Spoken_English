@@ -9,3 +9,14 @@
 
 - [AI 英语口语陪练 MVP 详细设计说明](docs/详细设计/00-详细设计说明.md)
 - [五人并行开发任务拆分](docs/详细设计/08-五人并行开发任务拆分.md)
+
+## 本地依赖环境（E-02）
+
+MySQL、RabbitMQ、MinIO 通过 Docker Compose 启动：
+
+```bash
+cp .env.example .env
+docker compose -f infra/docker-compose.yml up -d
+```
+
+完整步骤、默认凭据与验证命令见 [E-02 本地依赖环境启动说明](docs/联调记录/E-02-本地依赖环境启动说明.md)。
